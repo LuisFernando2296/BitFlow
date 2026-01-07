@@ -1,0 +1,205 @@
+// src/services/ventasService.ts
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://backend.bitflow.com.mx/api'
+const USER_KEY = 'bitflow_user'
+
+// Si después manejas token/JWT, lo agregas aquí
+const getAuthHeaders = () => {
+  const stored = sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY)
+  if (!stored) return {}
+  // const user = JSON.parse(stored)
+  // return { Authorization: `Bearer ${user.token}` }
+  return {}
+}
+
+// ---------- Tipos ----------
+export type ProspectoPayload = {
+  nombre: string
+  telefono: string
+  correo: string
+  origen?: string
+}
+
+export type Prospecto = {
+  id: number
+  idUser: number | null          // puede ser null si aún no se asigna
+  nombre: string
+  telefono: string
+  correo: string
+  folio?: string | null
+  fechaAlta: string | null
+  origen?: string | null
+  status: 1 | 2 | 3 | 4 | 5
+  fehcaCierre?: string | null    // (así viene de la BD)
+  venta?: number | null
+  comentarios?: string | null
+  usuario?: string | null        // nombre del usuario asignado (join con bitUsers)
+}
+
+export interface NotaProspecto {
+  id: number
+  idUser: number
+  regNota: string
+  nota: string
+  url: string | null
+  create_at: string
+  usuario: string
+}
+
+// ---------- Crear prospecto manual ----------
+export const crearProspectoManual = async (payload: ProspectoPayload) => {
+  const res = await axios.post(
+    `${API_URL}/ventas/prospectos`,
+    payload,
+    { headers: getAuthHeaders() }
+  )
+  return res.data as { ok: boolean; msg: string; id: number; idUserAsignado: number | null }
+}
+
+// ---------- Importar prospectos desde JSON (carga masiva) ----------
+export const importarProspectosJson = async (prospectos: ProspectoPayload[]) => {
+  const res = await axios.post(
+    `${API_URL}/ventas/prospectos/import-json`,
+    { prospectos },
+    { headers: getAuthHeaders() }
+  )
+  return res.data as { ok: boolean; msg: string }
+}
+
+// ---------- Obtener lista de prospectos (con filtros y rol del usuario) ----------
+export const getProspectos = async (params: {
+  search?: string
+  status?: number
+}) => {
+  const stored =
+    sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY)
+
+  let mine = 0
+  let idUser: number | undefined
+
+  if (stored) {
+    try {
+      const user = JSON.parse(stored)
+      idUser = user.id
+
+      // Usuario normal (ventas)
+      if (user.idRol === 3 && user.idPuesto === 1) {
+        mine = 1
+      }
+
+      // Admin o master -> mine = 0
+    } catch {}
+  }
+
+  const res = await axios.get(`${API_URL}/ventas/prospectos`, {
+    params: {
+      ...params,
+      mine,
+      idUser,
+    },
+    headers: getAuthHeaders(),
+  })
+
+  return res.data as {
+    ok: boolean
+    msg: string
+    data: Prospecto[]
+  }
+}
+
+// ---------- Actualizar folio / venta / comentarios ----------
+export const actualizarVentaProspecto = async (
+  id: number,
+  data: { folio?: string | null; venta?: number | null; comentarios?: string | null }
+) => {
+  const res = await axios.patch(
+    `${API_URL}/ventas/prospectos/${id}/venta`,
+    data,
+    { headers: getAuthHeaders() }
+  )
+
+  return res.data as { ok: boolean; msg: string; data: Prospecto }
+}
+
+// ---------- Actualizar status ----------
+export const actualizarStatusProspecto = async (id: number, status: 1 | 2 | 3 | 4 | 5) => {
+  // leemos el usuario igual que en getProspectos
+  const stored =
+    sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY)
+
+  let idRol: number | undefined
+
+  if (stored) {
+    try {
+      const user = JSON.parse(stored)
+      idRol = user.idRol
+    } catch {
+      // ignore
+    }
+  }
+
+  const res = await axios.patch(
+    `${API_URL}/ventas/prospectos/${id}/status`,
+    { status, idRol },          // 👈 mandamos también el rol
+    { headers: getAuthHeaders() }
+  )
+
+  return res.data as { ok: boolean; msg: string; data: Prospecto }
+}
+
+export const asignarProspectoManual = async (id: number, idUser: number) => {
+  const res = await axios.patch(
+    `${API_URL}/ventas/prospectos/${id}/asignar-manual`,
+    { idUser },
+    { headers: getAuthHeaders() }
+  )
+
+  return res.data as {
+    ok: boolean
+    msg: string
+    data: Prospecto
+  }
+}
+
+// Obtener notas de un prospecto
+export const getNotasProspecto = async (idProspecto: number) => {
+  const res = await axios.get(`${API_URL}/ventas/prospectos/${idProspecto}/notas`, {
+    headers: getAuthHeaders(),
+  })
+
+  return res.data as {
+    ok: boolean
+    msg: string
+    regNota: string
+    data: NotaProspecto[]
+  }
+}
+
+// Crear nota
+export const crearNotaProspecto = async (idPros: number, formData: FormData) => {
+  const res = await axios.post(
+    `${API_URL}/ventas/prospectos/${idPros}/notas`,
+    formData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }
+  )
+  return res.data as { ok: boolean; msg: string; data: NotaProspecto }
+}
+
+export const tomarProspectosLibres = async (idUser: number) => {
+  const res = await axios.post(`${API_URL}/ventas/prospectos/tomar-libres`, {
+    idUser,
+  })
+
+  return res.data as {
+    ok: boolean
+    msg: string
+    activosPrevios?: number
+    activosActuales?: number
+    totalAsignados: number
+    asignados: Prospecto[]
+  }
+}
+

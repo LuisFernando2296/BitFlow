@@ -1,0 +1,10 @@
+Options -MultiViews
+RewriteEngine On
+
+# Si existe archivo/carpeta real, lo sirve
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Todo lo demás se va a dist/
+RewriteRule ^ dist/index.html [L]
