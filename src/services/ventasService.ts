@@ -189,10 +189,15 @@ export const crearNotaProspecto = async (idPros: number, formData: FormData) => 
 }
 
 export const tomarProspectosLibres = async (idUser: number) => {
-  const res = await axios.post(`${API_URL}/ventas/prospectos/tomar-libres`, {
-    idUser,
-  })
+  const res = await axios.post(
+    `${API_URL}/ventas/prospectos/tomar-libres`,
+    { idUser },
+    { headers: getAuthHeaders() }
+  )
+  return res.data
+}
 
+/* 
   return res.data as {
     ok: boolean
     msg: string
@@ -202,4 +207,4 @@ export const tomarProspectosLibres = async (idUser: number) => {
     asignados: Prospecto[]
   }
 }
-
+ */

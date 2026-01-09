@@ -352,7 +352,7 @@ function LeadDonutCard({ label, percent, color }: LeadDonutProps) {
         >
           <Box>
             <Typography variant={isSmall ? 'h5' : 'h4'} fontWeight={800}>
-              Dashboard de ventas
+              Dashboard
             </Typography>
             <Typography variant="body2" sx={{ color: COLORS.mutedText, mt: 0.5 }}>
               Resumen general de ventas y comportamiento de leads.

@@ -51,10 +51,6 @@ import {
   type UsuarioCatalogo,
 } from '../../services/catalogosService'
 
-const user = getUser()
-const esMaster = user?.idRol === 1
-/* const esVendedor = user?.idRol === 3 && user?.idPuesto === 1 */
-
 const formatCurrency = (value: number | null | undefined) => {
   if (value == null) return '-'
   return value.toLocaleString('es-MX', {
@@ -112,6 +108,14 @@ function renderStatusChip(status: number) {
 
 export default function ProspectosPage() {
 
+const [user, setUser] = useState<any | null>(null)
+
+  useEffect(() => {
+    setUser(getUser())
+  }, [])
+
+  const esMaster = user?.idRol === 1
+/* const esVendedor = user?.idRol === 3 && user?.idPuesto === 1 */
 const [openAssign, setOpenAssign] = useState(false)
 const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
 const [usuariosVentas, setUsuariosVentas] = useState<UsuarioCatalogo[]>([])
