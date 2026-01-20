@@ -13,7 +13,7 @@ import FirstLoginChangePassword from '../pages/FirstLoginChangePassword'
 import CargaLeads from '../modules/ventas/CargaLeads'
 import ProspectosPage from '../modules/ventas/ProspectosPage'
 import EquiposPage from '../modules/ventas/EquiposPage'
-
+import UsuarioMetricasPage from '../modules/ventas/UsuarioMetricasPage'
 
 
 export const router = createBrowserRouter([
@@ -86,6 +86,15 @@ export const router = createBrowserRouter([
     element: (
       <NavbarGlobal>
         <EquiposPage />
+      </NavbarGlobal>
+    ),
+  },
+
+  {
+  path: '/ventas/usuario-metricas/:idUser',
+  element: (
+      <NavbarGlobal>
+        <UsuarioMetricasPage />,
       </NavbarGlobal>
     ),
   },

@@ -31,7 +31,7 @@ export type Prospecto = {
   fechaAlta: string | null
   origen?: string | null
   status: 1 | 2 | 3 | 4 | 5
-  fehcaCierre?: string | null    // (así viene de la BD)
+  fechaCierre?: string | null    // (así viene de la BD)
   venta?: number | null
   comentarios?: string | null
   usuario?: string | null        // nombre del usuario asignado (join con bitUsers)
@@ -195,6 +195,44 @@ export const tomarProspectosLibres = async (idUser: number) => {
     { headers: getAuthHeaders() }
   )
   return res.data
+}
+
+export async function getProspectosByUser(idUser: number) {
+  const { data } = await axios.get(`${API_URL}/ventas/prospectos/usuario/${idUser}`)
+  return data
+}
+
+export async function getNotasByRegNota(regNota: string) {
+  const { data } = await axios.get(`${API_URL}/ventas/prospectos/notas/${regNota}`)
+  return data
+}
+
+export async function crearNotaByRegNota(regNota: string, formData: FormData) {
+  const { data } = await axios.post(
+    `${API_URL}/ventas/prospectos/notas/${regNota}`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+export async function getMetricasUsuario(idUser: number) {
+  const { data } = await axios.get(`${API_URL}/ventas/usuarios/${idUser}/metricas`)
+  return data
+}
+
+export async function getProspectosLibresCount() {
+  const { data } = await axios.get(`${API_URL}/ventas/prospectos/libres/count`)
+  return data as { ok: boolean; data: { libres: number } }
+}
+
+export async function asignarProspectosMasivo(payload: { idUser: number; cantidad: number }) {
+  const { data } = await axios.post(`${API_URL}/ventas/prospectos/asignar-masivo`, payload)
+  return data as {
+    ok: boolean
+    msg?: string
+    data: { asignados: number; ids: number[]; libresRestantes: number }
+  }
 }
 
 /* 
