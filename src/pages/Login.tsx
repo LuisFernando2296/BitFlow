@@ -78,7 +78,7 @@ export default function Login() {
           p: 6,
         }}
       >
-        <Box component="img" src="/logo.png" alt="Logo" sx={{ maxWidth: 280, width: '60%' }} />
+        <Box component="img" src="/logoBitflow.png" alt="Logo" sx={{ maxWidth: 280, width: '60%' }} />
       </Box>
 
       {/* Panel derecho */}

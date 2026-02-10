@@ -27,6 +27,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import SpaceDashboardRoundedIcon from '@mui/icons-material/SpaceDashboardRounded'
 import PointOfSaleRoundedIcon from '@mui/icons-material/PointOfSaleRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 
@@ -57,7 +58,6 @@ const COLORS = {
 
 // ---------------- TIPOS PARA EL MENÚ ----------------
 
-// ------------- TIPOS PARA EL MENÚ ----------------
 type MenuItemConfig =
   | {
       type: 'item'
@@ -76,7 +76,6 @@ type MenuItemConfig =
       }[]
     }
 
-
 // Config base del menú
 const menuConfig: MenuItemConfig[] = [
   {
@@ -91,14 +90,8 @@ const menuConfig: MenuItemConfig[] = [
     icon: <GroupRoundedIcon />,
     id: 'rrhh',
     children: [
-      {
-        label: 'Usuarios',
-        path: '/rrhh/usuarios',
-      },
-      {
-        label: 'Agregar usuario',
-        path: '/rrhh/usuarios/nuevo',
-      },
+      { label: 'Usuarios', path: '/rrhh/usuarios' },
+      { label: 'Agregar usuario', path: '/rrhh/usuarios/nuevo' },
     ],
   },
   {
@@ -107,23 +100,18 @@ const menuConfig: MenuItemConfig[] = [
     icon: <PointOfSaleRoundedIcon />,
     id: 'ventas',
     children: [
-      {
-        label: 'Cargar leads',
-        path: '/ventas/upload-leads',
-      },
-      {
-        label: 'Prospectos',
-        path: '/ventas/leads',
-      },
-      {
-        label: 'Registro de ventas',
-        path: '/ventas/registro',
-      },
-      {
-        label: 'Equipos de Ventas',
-        path: '/ventas/equipos',
-      },
+      { label: 'Cargar leads', path: '/ventas/upload-leads' },
+      { label: 'Prospectos', path: '/ventas/leads' },
+      { label: 'Registro de ventas', path: '/ventas/registro' },
+      { label: 'Equipos de Ventas', path: '/ventas/equipos' },
     ],
+  },
+  {
+    type: 'group',
+    label: 'Finanzas',
+    icon: <AccountBalanceRoundedIcon />,
+    id: 'finanzas',
+    children: [{ label: 'Ingresos', path: '/finanzas/ingresos' }],
   },
 ]
 
@@ -140,8 +128,12 @@ function getMenuForRole(user: User | null): MenuItemConfig[] {
     return menuConfig
   }
 
+  // Reglas actuales
   const isAdminVentas = user.idRol === 2 && user.idPuesto === 1
   const isUsuarioVentas = user.idRol === 3 && user.idPuesto === 1
+
+  // ✅ NUEVO: Admin Finanzas
+  const isAdminFinanzas = user.idRol === 2 && user.idPuesto === 2
 
   const filtered: MenuItemConfig[] = []
 
@@ -168,33 +160,50 @@ function getMenuForRole(user: User | null): MenuItemConfig[] {
           }
         }
         // Usuario de ventas no ve RRHH
+        // Admin Finanzas tampoco ve RRHH (por ahora)
         continue
       }
 
       // Ventas
-    if (item.id === 'ventas') {
-      // Admin de ventas → ve TODO ventas
-      if (isAdminVentas) {
-        filtered.push(item)
+      if (item.id === 'ventas') {
+        // Admin de ventas → ve TODO ventas
+        if (isAdminVentas) {
+          filtered.push(item)
+        }
+
+        // Usuario de ventas → SOLO prospectos
+        if (isUsuarioVentas) {
+          const prospectos = item.children.find(child => child.path === '/ventas/leads')
+          if (prospectos) {
+            filtered.push({
+              ...item,
+              children: [prospectos],
+            })
+          }
+        }
+
+        // Admin Finanzas no ve Ventas (por ahora)
+        continue
       }
 
-      // Usuario de ventas → SOLO prospectos
-      if (isUsuarioVentas) {
-        const prospectos = item.children.find(
-          child => child.path === '/ventas/leads',
-        )
+      // ✅ Finanzas
+      if (item.id === 'finanzas') {
+        // Admin Finanzas → ve TODO finanzas
+        if (isAdminFinanzas) {
+          filtered.push(item)
+        }
 
-        if (prospectos) {
+        // Admin Ventas → ve "Finanzas" pero SIN opciones (por ahora)
+        if (isAdminVentas) {
           filtered.push({
             ...item,
-            children: [prospectos],
+            children: [], // ✅ sin submenú
           })
         }
+
+        // Usuario Ventas no ve Finanzas
+        continue
       }
-
-      continue
-    }
-
     }
   }
 
@@ -223,6 +232,7 @@ export default function NavbarGlobal({ children }: Props) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     ventas: false,
     rrhh: false,
+    finanzas: false, // ✅ nuevo
   })
 
   const toggleGroup = (id: string) => {
@@ -273,7 +283,7 @@ export default function NavbarGlobal({ children }: Props) {
       >
         <Box
           component="img"
-          src="/logo.png"
+          src="/iso.png"
           alt="BitFlow"
           sx={{ width: 40, height: 40, objectFit: 'contain' }}
         />
@@ -327,16 +337,19 @@ export default function NavbarGlobal({ children }: Props) {
             )
           }
 
-          // GROUP (RRHH, Ventas)
+          // GROUP (RRHH, Ventas, Finanzas)
           const anyChildActive = item.children.some(child =>
             location.pathname.startsWith(child.path),
           )
           const openGroup = openGroups[item.id] ?? false
+          const hasChildren = item.children.length > 0
 
           return (
             <Box key={item.id}>
               <ListItemButton
-                onClick={() => toggleGroup(item.id)}
+                onClick={() => {
+                  if (hasChildren) toggleGroup(item.id)
+                }}
                 sx={{
                   mb: 0.5,
                   borderRadius: 3,
@@ -362,43 +375,45 @@ export default function NavbarGlobal({ children }: Props) {
                     fontWeight: anyChildActive ? 700 : 500,
                   }}
                 />
-                {openGroup ? <ExpandLess /> : <ExpandMore />}
+                {hasChildren && (openGroup ? <ExpandLess /> : <ExpandMore />)}
               </ListItemButton>
 
-              <Collapse in={openGroup} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding sx={{ mb: 0.5 }}>
-                  {item.children.map(child => {
-                    const activeChild = location.pathname.startsWith(child.path)
-                    return (
-                      <ListItemButton
-                        key={child.path}
-                        component={RouterLink}
-                        to={child.path}
-                        sx={{
-                          ml: 4,
-                          mb: 0.25,
-                          borderRadius: 2,
-                          color: activeChild ? 'white' : COLORS.textMuted,
-                          bgcolor: activeChild ? 'rgba(22,163,74,0.22)' : 'transparent',
-                          '&:hover': {
-                            bgcolor: activeChild
-                              ? 'rgba(22,163,74,0.32)'
-                              : 'rgba(148,163,184,0.12)',
-                          },
-                        }}
-                      >
-                        <ListItemText
-                          primary={child.label}
-                          primaryTypographyProps={{
-                            fontSize: 13,
-                            fontWeight: activeChild ? 600 : 400,
+              {hasChildren && (
+                <Collapse in={openGroup} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding sx={{ mb: 0.5 }}>
+                    {item.children.map(child => {
+                      const activeChild = location.pathname.startsWith(child.path)
+                      return (
+                        <ListItemButton
+                          key={child.path}
+                          component={RouterLink}
+                          to={child.path}
+                          sx={{
+                            ml: 4,
+                            mb: 0.25,
+                            borderRadius: 2,
+                            color: activeChild ? 'white' : COLORS.textMuted,
+                            bgcolor: activeChild ? 'rgba(22,163,74,0.22)' : 'transparent',
+                            '&:hover': {
+                              bgcolor: activeChild
+                                ? 'rgba(22,163,74,0.32)'
+                                : 'rgba(148,163,184,0.12)',
+                            },
                           }}
-                        />
-                      </ListItemButton>
-                    )
-                  })}
-                </List>
-              </Collapse>
+                        >
+                          <ListItemText
+                            primary={child.label}
+                            primaryTypographyProps={{
+                              fontSize: 13,
+                              fontWeight: activeChild ? 600 : 400,
+                            }}
+                          />
+                        </ListItemButton>
+                      )
+                    })}
+                  </List>
+                </Collapse>
+              )}
             </Box>
           )
         })}
@@ -463,7 +478,7 @@ export default function NavbarGlobal({ children }: Props) {
               </Avatar>
             </div>
 
-            {/* Menú del avatar (fuera del div para que cierre bien) */}
+            {/* Menú del avatar */}
             <Menu
               anchorEl={anchorEl}
               open={openMenu}
@@ -534,7 +549,7 @@ export default function NavbarGlobal({ children }: Props) {
         component="main"
         sx={{
           flexGrow: 1,
-          mt: 7, // espacio por AppBar
+          mt: 7,
           minWidth: 0,
           bgcolor: '#F3F4F6',
         }}
