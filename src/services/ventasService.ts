@@ -21,6 +21,12 @@ export type ProspectoPayload = {
   origen?: string
 }
 
+export type ProspectosConteos = {
+  totales: number
+  libres: number
+  remarcados: number
+}
+
 export type Prospecto = {
   id: number
   idUser: number | null          // puede ser null si aún no se asigna
@@ -221,17 +227,32 @@ export async function getMetricasUsuario(idUser: number) {
   return data
 }
 
+export type ModoAsignacion = 'totales' | 'libres' | 'remarcados'
+
 export async function getProspectosLibresCount() {
   const { data } = await axios.get(`${API_URL}/ventas/prospectos/libres/count`)
-  return data as { ok: boolean; data: { libres: number } }
+  return data as {
+    ok: boolean
+    data: ProspectosConteos
+  }
 }
 
-export async function asignarProspectosMasivo(payload: { idUser: number; cantidad: number }) {
+export async function asignarProspectosMasivo(payload: {
+  idUser: number
+  cantidad: number
+  modo: ModoAsignacion
+}) {
   const { data } = await axios.post(`${API_URL}/ventas/prospectos/asignar-masivo`, payload)
   return data as {
     ok: boolean
     msg?: string
-    data: { asignados: number; ids: number[]; libresRestantes: number }
+    data: {
+      asignados: number
+      ids: number[]
+      conteos: ProspectosConteos
+      restantesModo: number
+      modo: ModoAsignacion
+    }
   }
 }
 

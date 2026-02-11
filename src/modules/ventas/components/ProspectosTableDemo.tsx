@@ -262,6 +262,13 @@ export default function ProspectosTableDemo(props: {
   const [archivo, setArchivo] = useState<File | null>(null)
   const [prospectoNotas, setProspectoNotas] = useState<Prospecto | null>(null)
 
+  useEffect(() => {
+  if (openNotas) {
+    setNotaTexto('')
+    setArchivo(null)
+  }
+}, [prospectoNotas, openNotas])
+
   const cargarNotas = async (regNota: string) => {
     try {
       setLoadingNotas(true)
@@ -282,14 +289,17 @@ export default function ProspectosTableDemo(props: {
   }
 
   const abrirModalNotas = async (p: Prospecto) => {
-    if (!p.regNota) {
-      showSnackbar('Este prospecto no tiene regNota asignado.', 'warning')
-      return
-    }
-    setProspectoNotas(p)
-    setOpenNotas(true)
-    await cargarNotas(p.regNota)
+  setProspectoNotas(p)
+  setOpenNotas(true)
+
+  // si NO hay regNota todavía, solo abre el modal vacío
+  if (!p.regNota) {
+    setNotas([])
+    return
   }
+
+  await cargarNotas(p.regNota)
+}
 
   const handleGuardarNota = async () => {
     if (!prospectoNotas?.regNota) return
@@ -579,7 +589,11 @@ export default function ProspectosTableDemo(props: {
       </Dialog>
 
       {/* Modal notas */}
-      <Dialog open={openNotas} onClose={() => setOpenNotas(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openNotas} onClose={() => {
+          setOpenNotas(false)
+          setNotaTexto('')
+          setArchivo(null)
+        }} maxWidth="sm" fullWidth>
         <DialogTitle>Notas del prospecto {prospectoNotas?.nombre ?? ''}</DialogTitle>
 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
