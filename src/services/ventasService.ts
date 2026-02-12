@@ -256,6 +256,12 @@ export async function asignarProspectosMasivo(payload: {
   }
 }
 
+export async function tomarProspecto(payload: { idProspecto: number; idUser: number }) {
+  const { data } = await axios.post(`${API_URL}/ventas/prospectos/tomar`, payload)
+  return data as { ok: boolean; msg?: string; data?: any }
+}
+
+
 /* 
   return res.data as {
     ok: boolean

@@ -40,6 +40,7 @@ import {
   crearNotaByRegNota,
   actualizarStatusProspecto,
   asignarProspectoManual,
+  tomarProspecto,
 } from '../../../services/ventasService'
 
 type UsuarioCatalogo = {
@@ -336,6 +337,34 @@ export default function ProspectosTableDemo(props: {
     }
   }
 
+  const handleTomarProspecto = async (p: Prospecto) => {
+  if (!currentUserId) {
+    showSnackbar('Usuario no identificado.', 'error')
+    return
+  }
+
+  try {
+    setLoading(true)
+
+    const resp = await tomarProspecto({
+      idProspecto: p.id,
+      idUser: currentUserId,
+    })
+
+    if (!resp?.ok) {
+      showSnackbar(resp?.msg || 'No se pudo tomar el prospecto', 'error')
+      return
+    }
+
+    showSnackbar(resp?.msg || 'Prospecto tomado correctamente', 'success')
+    await loadProspectosUser()
+  } catch (e: any) {
+    showSnackbar(e?.response?.data?.msg || e.message || 'Error al tomar prospecto', 'error')
+  } finally {
+    setLoading(false)
+  }
+}
+
   // ───────────── Asignación manual (opcional)
   const [openAssign, setOpenAssign] = useState(false)
   const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
@@ -518,6 +547,14 @@ export default function ProspectosTableDemo(props: {
                               <PersonAddAlt1OutlinedIcon fontSize="small" />
                             </IconButton>
                           </span>
+                        </Tooltip>
+                      )}
+
+                      {p.idUser !== currentUserId && (
+                        <Tooltip title="Tomar prospecto">
+                          <IconButton size="small" color="primary" onClick={() => handleTomarProspecto(p)}>
+                            <PersonAddAlt1OutlinedIcon fontSize="small" />
+                          </IconButton>
                         </Tooltip>
                       )}
 
