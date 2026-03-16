@@ -4,20 +4,20 @@ import { useParams } from 'react-router-dom'
 import { getUser } from '../../services/authService'
 import {
   Box,
-  Button,
+  /* Button, */
   Chip,
   CircularProgress,
-  Dialog,
+  /* Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
   InputLabel,
-  MenuItem,
+  MenuItem, */
   Paper,
-  Select,
+  /* Select, */
   Stack,
-  TextField,
+  /* TextField, */
   Typography,
 } from '@mui/material'
 
@@ -26,7 +26,7 @@ import Alert from '@mui/material/Alert'
 
 import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined'
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined'
-import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined'
+/* import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined' */
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
@@ -35,8 +35,8 @@ import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined'
 import ProspectosTableDemo from './components/ProspectosTableDemo'
 import {
   getMetricasUsuario,
-  getProspectosLibresCount,
-  asignarProspectosMasivo,
+  /* getProspectosLibresCount, */
+  /* asignarProspectosMasivo, */
 } from '../../services/ventasService'
 
 function money(n: number) {
@@ -66,13 +66,13 @@ type MetricasResp = {
   }
 }
 
-type ProspectosConteos = {
+/* type ProspectosConteos = {
   totales: number
   libres: number
   remarcados: number
-}
+} */
 
-type ModoAsignacion = 'totales' | 'libres' | 'remarcados'
+/* type ModoAsignacion = 'totales' | 'libres' | 'remarcados' */
 
 export default function UsuarioMetricasPage() {
   const { idUser } = useParams()
@@ -176,10 +176,10 @@ export default function UsuarioMetricasPage() {
     severity: 'success' | 'error' | 'info' | 'warning'
   }>({ open: false, message: '', severity: 'success' })
 
-  const showSnackbar = (
+  /* const showSnackbar = (
     message: string,
     severity: 'success' | 'error' | 'info' | 'warning' = 'success',
-  ) => setSnackbar({ open: true, message, severity })
+  ) => setSnackbar({ open: true, message, severity }) */
 
   const closeSnackbar = (_?: any, reason?: string) => {
     if (reason === 'clickaway') return
@@ -187,14 +187,14 @@ export default function UsuarioMetricasPage() {
   }
 
   // ───────────────────────── Conteos disponibles (totales/libres/remarcados) ─────────────────────────
-  const [conteosDisponibles, setConteosDisponibles] = useState<ProspectosConteos>({
+  /* const [conteosDisponibles, setConteosDisponibles] = useState<ProspectosConteos>({
     totales: 0,
     libres: 0,
     remarcados: 0,
   })
-  const [loadingDisponibles, setLoadingDisponibles] = useState(false)
+  const [loadingDisponibles, setLoadingDisponibles] = useState(false) */
 
-  const loadDisponibles = async () => {
+  /* const loadDisponibles = async () => {
     try {
       setLoadingDisponibles(true)
       const resp = await getProspectosLibresCount()
@@ -204,21 +204,21 @@ export default function UsuarioMetricasPage() {
     } finally {
       setLoadingDisponibles(false)
     }
-  }
+  } */
 
-  useEffect(() => {
+  /* useEffect(() => {
     loadDisponibles()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []) */
 
   // ───────────────────────── Asignación masiva ─────────────────────────
-  const [openAsignar, setOpenAsignar] = useState(false)
+  /* const [openAsignar, setOpenAsignar] = useState(false)
   const [asignando, setAsignando] = useState(false)
 
   const [modoAsignacion, setModoAsignacion] = useState<ModoAsignacion>('totales')
-  const [cantidadAsignar, setCantidadAsignar] = useState<number>(10)
+  const [cantidadAsignar, setCantidadAsignar] = useState<number>(10) */
 
-  const disponiblesActuales = useMemo(() => {
+  /* const disponiblesActuales = useMemo(() => {
     if (modoAsignacion === 'totales') return conteosDisponibles.totales
     if (modoAsignacion === 'libres') return conteosDisponibles.libres
     return conteosDisponibles.remarcados
@@ -228,12 +228,13 @@ export default function UsuarioMetricasPage() {
     if (modoAsignacion === 'totales') return 'Leads totales'
     if (modoAsignacion === 'libres') return 'Leads libres'
     return 'Leads remarcados'
-  }, [modoAsignacion])
+  }, [modoAsignacion]) */
 
   // refrescar tabla
-  const [refreshKey, setRefreshKey] = useState(0)
+   const [refreshKey] = useState(0)
+  /* const [refreshKey, setRefreshKey] = useState(0) */
 
-  const handleAsignarMasivo = async () => {
+  /* const handleAsignarMasivo = async () => {
     if (!userIdNum || !cantidadAsignar) return
 
     if (cantidadAsignar > disponiblesActuales) {
@@ -270,7 +271,7 @@ export default function UsuarioMetricasPage() {
     } finally {
       setAsignando(false)
     }
-  }
+  } */
 
   return (
     <Box p={3} maxWidth="xl" mx="auto">
@@ -317,7 +318,7 @@ export default function UsuarioMetricasPage() {
           )}
         </Stack>
 
-        <Stack direction="row" spacing={1}>
+        {/* <Stack direction="row" spacing={1}>
           <Button
             variant="outlined"
             startIcon={<AddCircleOutlineOutlinedIcon />}
@@ -329,7 +330,7 @@ export default function UsuarioMetricasPage() {
           >
             Asignar prospectos
           </Button>
-        </Stack>
+        </Stack> */}
       </Stack>
 
       {/* Cards métricas */}
@@ -422,7 +423,7 @@ export default function UsuarioMetricasPage() {
       </Paper>
 
       {/* Aside conteo dinámico */}
-      <Paper sx={{ p: 2, borderRadius: 2, mt: 2 }}>
+      {/* <Paper sx={{ p: 2, borderRadius: 2, mt: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
           <Box>
             <Typography fontWeight={900}>Prospectos disponibles</Typography>
@@ -438,7 +439,7 @@ export default function UsuarioMetricasPage() {
             size="small"
           />
 
-          <Button
+          {<Button
             variant="contained"
             startIcon={<AddCircleOutlineOutlinedIcon />}
             sx={{ textTransform: 'none' }}
@@ -448,12 +449,12 @@ export default function UsuarioMetricasPage() {
             }}
           >
             Asignar masivamente a {headerUser.nombre.split(' ')[0] || 'usuario'}
-          </Button>
+          </Button>}
         </Stack>
-      </Paper>
+      </Paper> */}
 
       {/* Modal asignación masiva */}
-      <Dialog open={openAsignar} onClose={() => setOpenAsignar(false)} maxWidth="sm" fullWidth>
+      {/* <Dialog open={openAsignar} onClose={() => setOpenAsignar(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Asignar prospectos a {headerUser.nombre}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
@@ -499,7 +500,7 @@ export default function UsuarioMetricasPage() {
             {asignando ? 'Asignando…' : 'Asignar'}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
 
       <Snackbar
         open={snackbar.open}

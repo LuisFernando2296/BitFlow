@@ -43,7 +43,7 @@ import {
   actualizarVentaProspecto,
   asignarProspectoManual,
   type Prospecto,
-  tomarProspectosLibres,
+  /* tomarProspectosLibres, */
 } from '../../services/ventasService'
 
 import {
@@ -129,7 +129,7 @@ const [loadingNotas, setLoadingNotas] = useState(false)
 const [guardandoNota, setGuardandoNota] = useState(false)
 const [prospectoNotas, setProspectoNotas] = useState<Prospecto | null>(null)
 
-const handleTomarProspectosLibres = async () => {
+/* const handleTomarProspectosLibres = async () => {
   if (!user) {
     showSnackbar('No se encontró el usuario logueado.', 'error')
     return
@@ -154,7 +154,7 @@ const handleTomarProspectosLibres = async () => {
   } finally {
     setLoading(false)
   }
-}
+} */
 
 const cargarNotas = async (idProspecto: number) => {
   try {
@@ -505,7 +505,7 @@ const handleCloseSnackbar = (
             Visualiza y administra el estado de los leads cargados al sistema.
           </Typography>
         </Box>
-          <Button
+          {/* <Button
             variant="contained"
             onClick={handleTomarProspectosLibres}
             disabled={loading}
@@ -524,7 +524,7 @@ const handleCloseSnackbar = (
             }}
           >
             Tomar prospectos 
-          </Button>
+          </Button> */}
       </Stack>
 
       {/* Chips resumen */}
