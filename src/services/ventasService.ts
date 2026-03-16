@@ -93,26 +93,28 @@ export const getProspectos = async (params: {
   const stored =
     sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY)
 
-  let mine = 0
   let idUser: number | undefined
+  let idRol: number | undefined
+  let idPuesto: number | undefined
+  let idEmpresa: number | undefined
 
   if (stored) {
     try {
       const user = JSON.parse(stored)
       idUser = user.id
-
-      // Usuario normal (ventas)
-      if (user.idRol === 3 && user.idPuesto === 1) {
-        mine = 1
-      }
+      idRol = user.idRol
+      idPuesto = user.idPuesto
+      idEmpresa = user.idEmpresa
     } catch {}
   }
 
   const res = await axios.get(`${API_URL}/ventas/prospectos`, {
     params: {
       ...params,
-      mine,
       idUser,
+      idRol,
+      idPuesto,
+      idEmpresa,
     },
     headers: getAuthHeaders(),
   })

@@ -115,6 +115,7 @@ const [user, setUser] = useState<any | null>(null)
   }, [])
 
   const esMaster = user?.idRol === 1
+   const esAdmin = user?.idRol === 2
 /* const esVendedor = user?.idRol === 3 && user?.idPuesto === 1 */
 const [openAssign, setOpenAssign] = useState(false)
 const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
@@ -233,24 +234,24 @@ const handleGuardarNota = async () => {
 }
 
   const abrirModalAsignar = async (p: Prospecto) => {
-    if (!esMaster) return
+  if (!esMaster && !esAdmin) return
 
-    try {
-      setLoadingUsuarios(true)
-      setAssignProspecto(p)
-      setSelectedUserId(null)
+  try {
+    setLoadingUsuarios(true)
+    setAssignProspecto(p)
+    setSelectedUserId(null)
 
-      const data = await getUsuariosVentas()
-      setUsuariosVentas(data)
-      setOpenAssign(true)
-    } catch (e: any) {
-      console.error(e)
-      const msg = e?.response?.data?.msg || e.message || 'Error al cargar usuarios de ventas'
-      showSnackbar(msg, 'error')
-    } finally {
-      setLoadingUsuarios(false)
-    }
+    const data = await getUsuariosVentas()
+    setUsuariosVentas(data)
+    setOpenAssign(true)
+  } catch (e: any) {
+    console.error(e)
+    const msg = e?.response?.data?.msg || e.message || 'Error al cargar usuarios de ventas'
+    showSnackbar(msg, 'error')
+  } finally {
+    setLoadingUsuarios(false)
   }
+}
 
   const cerrarModalAsignar = () => {
     setOpenAssign(false)
@@ -690,24 +691,18 @@ const handleCloseSnackbar = (
                 </Tooltip>
 
                 {/* 🔹 NUEVO: Asignar manualmente (solo master) */}
-                {esMaster && (
-                  <Tooltip title="Asignar manualmente a un usuario de ventas">
-                    <span>
-                      {esMaster && (
-                        <Tooltip title="">
-                          <span>
-                            <IconButton
-                              size="small"
-                              onClick={() => abrirModalAsignar(p)}
-                            >
-                              <PersonAddAlt1OutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      )}
-                    </span>
-                  </Tooltip>
-                )}
+                {(esMaster || esAdmin) && (
+                    <Tooltip title="Asignar manualmente a un usuario de ventas">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => abrirModalAsignar(p)}
+                        >
+                          <PersonAddAlt1OutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  )}
 
                   <Tooltip title="Ver / agregar notas">
                     <IconButton size="small" onClick={() => abrirModalNotas(p)}>
