@@ -20,6 +20,11 @@ export interface EquipoVentas {
   equipo: string;
 }
 
+export interface UsuarioEquipoVentas {
+  id: number
+  nombre: string
+}
+
 // ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 //   Catálogo: Empresas
 // ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -62,5 +67,18 @@ export async function getUsuariosVentas(): Promise<UsuarioCatalogo[]> {
 
 export async function getEquiposVentas(): Promise<EquipoVentas[]> {
   const { data } = await axios.get<EquipoVentas[]>(`${API_URL}/catalogos/equipos-ventas`)
+  return data
+}
+
+// ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+//   Catálogo: Usuarios en equipos de ventas
+// ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+export async function getUsuariosEquipoVentas(idEmpresa: number): Promise<UsuarioEquipoVentas[]> {
+  const { data } = await axios.get<UsuarioEquipoVentas[]>(
+    `${API_URL}/catalogos/usuarios-equipo-ventas`,
+    {
+      params: { idEmpresa },
+    }
+  )
   return data
 }

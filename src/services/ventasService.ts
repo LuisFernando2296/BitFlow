@@ -19,6 +19,8 @@ export type ProspectoPayload = {
   telefono: string
   correo: string
   origen?: string
+  idUser?: number | null
+  idEmpresa?: number | null
 }
 
 export type ProspectosConteos = {
@@ -29,7 +31,7 @@ export type ProspectosConteos = {
 
 export type Prospecto = {
   id: number
-  idUser: number | null          // puede ser null si aún no se asigna
+  idUser: number | null
   nombre: string
   telefono: string
   correo: string
@@ -37,10 +39,10 @@ export type Prospecto = {
   fechaAlta: string | null
   origen?: string | null
   status: 1 | 2 | 3 | 4 | 5
-  fechaCierre?: string | null    // (así viene de la BD)
+  fechaCierre?: string | null
   venta?: number | null
   comentarios?: string | null
-  usuario?: string | null        // nombre del usuario asignado (join con bitUsers)
+  usuario?: string | null
 }
 
 export interface NotaProspecto {
@@ -60,7 +62,13 @@ export const crearProspectoManual = async (payload: ProspectoPayload) => {
     payload,
     { headers: getAuthHeaders() }
   )
-  return res.data as { ok: boolean; msg: string; id: number; idUserAsignado: number | null }
+
+  return res.data as {
+    ok: boolean
+    msg: string
+    id: number
+    idUserAsignado: number | null
+  }
 }
 
 // ---------- Importar prospectos desde JSON (carga masiva) ----------
@@ -70,7 +78,11 @@ export const importarProspectosJson = async (prospectos: ProspectoPayload[]) => 
     { prospectos },
     { headers: getAuthHeaders() }
   )
-  return res.data as { ok: boolean; msg: string }
+
+  return res.data as {
+    ok: boolean
+    msg: string
+  }
 }
 
 // ---------- Obtener lista de prospectos (con filtros y rol del usuario) ----------
@@ -93,8 +105,6 @@ export const getProspectos = async (params: {
       if (user.idRol === 3 && user.idPuesto === 1) {
         mine = 1
       }
-
-      // Admin o master -> mine = 0
     } catch {}
   }
 
@@ -130,7 +140,6 @@ export const actualizarVentaProspecto = async (
 
 // ---------- Actualizar status ----------
 export const actualizarStatusProspecto = async (id: number, status: 1 | 2 | 3 | 4 | 5) => {
-  // leemos el usuario igual que en getProspectos
   const stored =
     sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY)
 
@@ -147,7 +156,7 @@ export const actualizarStatusProspecto = async (id: number, status: 1 | 2 | 3 | 
 
   const res = await axios.patch(
     `${API_URL}/ventas/prospectos/${id}/status`,
-    { status, idRol },          // 👈 mandamos también el rol
+    { status, idRol },
     { headers: getAuthHeaders() }
   )
 
@@ -188,9 +197,13 @@ export const crearNotaProspecto = async (idPros: number, formData: FormData) => 
     `${API_URL}/ventas/prospectos/${idPros}/notas`,
     formData,
     {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'multipart/form-data',
+      },
     }
   )
+
   return res.data as { ok: boolean; msg: string; data: NotaProspecto }
 }
 
@@ -204,12 +217,18 @@ export const tomarProspectosLibres = async (idUser: number) => {
 }
 
 export async function getProspectosByUser(idUser: number) {
-  const { data } = await axios.get(`${API_URL}/ventas/prospectos/usuario/${idUser}`)
+  const { data } = await axios.get(
+    `${API_URL}/ventas/prospectos/usuario/${idUser}`,
+    { headers: getAuthHeaders() }
+  )
   return data
 }
 
 export async function getNotasByRegNota(regNota: string) {
-  const { data } = await axios.get(`${API_URL}/ventas/prospectos/notas/${regNota}`)
+  const { data } = await axios.get(
+    `${API_URL}/ventas/prospectos/notas/${regNota}`,
+    { headers: getAuthHeaders() }
+  )
   return data
 }
 
@@ -217,20 +236,31 @@ export async function crearNotaByRegNota(regNota: string, formData: FormData) {
   const { data } = await axios.post(
     `${API_URL}/ventas/prospectos/notas/${regNota}`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
+    {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'multipart/form-data',
+      },
+    }
   )
   return data
 }
 
 export async function getMetricasUsuario(idUser: number) {
-  const { data } = await axios.get(`${API_URL}/ventas/usuarios/${idUser}/metricas`)
+  const { data } = await axios.get(
+    `${API_URL}/ventas/usuarios/${idUser}/metricas`,
+    { headers: getAuthHeaders() }
+  )
   return data
 }
 
 export type ModoAsignacion = 'totales' | 'libres' | 'remarcados'
 
 export async function getProspectosLibresCount() {
-  const { data } = await axios.get(`${API_URL}/ventas/prospectos/libres/count`)
+  const { data } = await axios.get(
+    `${API_URL}/ventas/prospectos/libres/count`,
+    { headers: getAuthHeaders() }
+  )
   return data as {
     ok: boolean
     data: ProspectosConteos
@@ -242,7 +272,12 @@ export async function asignarProspectosMasivo(payload: {
   cantidad: number
   modo: ModoAsignacion
 }) {
-  const { data } = await axios.post(`${API_URL}/ventas/prospectos/asignar-masivo`, payload)
+  const { data } = await axios.post(
+    `${API_URL}/ventas/prospectos/asignar-masivo`,
+    payload,
+    { headers: getAuthHeaders() }
+  )
+
   return data as {
     ok: boolean
     msg?: string
@@ -257,19 +292,11 @@ export async function asignarProspectosMasivo(payload: {
 }
 
 export async function tomarProspecto(payload: { idProspecto: number; idUser: number }) {
-  const { data } = await axios.post(`${API_URL}/ventas/prospectos/tomar`, payload)
+  const { data } = await axios.post(
+    `${API_URL}/ventas/prospectos/tomar`,
+    payload,
+    { headers: getAuthHeaders() }
+  )
+
   return data as { ok: boolean; msg?: string; data?: any }
 }
-
-
-/* 
-  return res.data as {
-    ok: boolean
-    msg: string
-    activosPrevios?: number
-    activosActuales?: number
-    totalAsignados: number
-    asignados: Prospecto[]
-  }
-}
- */
