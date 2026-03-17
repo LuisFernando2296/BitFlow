@@ -23,6 +23,8 @@ export interface EquipoVentas {
 export interface UsuarioEquipoVentas {
   id: number
   nombre: string
+  idEquipo: number
+  equipo: string
 }
 
 // ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬

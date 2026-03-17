@@ -134,8 +134,12 @@ export default function CargaLeads() {
     return
   }
 
+  const usuarioSeleccionado =
+    usuariosEquipo.find((u) => String(u.id) === String(manualIdUser)) || null
+
   const idUser = manualIdUser ? Number(manualIdUser) : null
   const idEmpresa = manualIdUser ? Number(user.idEmpresa) : 0
+  const idEquip = usuarioSeleccionado ? Number(usuarioSeleccionado.idEquipo) : null
 
   try {
     setManualLoading(true)
@@ -144,6 +148,7 @@ export default function CargaLeads() {
       ...manualForm,
       idUser,
       idEmpresa,
+      idEquip,
     }
 
     const resp = await crearProspectoManual(payload)
@@ -231,8 +236,12 @@ export default function CargaLeads() {
     return
   }
 
+  const usuarioSeleccionado =
+    usuariosEquipo.find((u) => String(u.id) === String(massiveIdUser)) || null
+
   const idUser = massiveIdUser ? Number(massiveIdUser) : null
   const idEmpresa = massiveIdUser ? Number(user.idEmpresa) : 0
+  const idEquip = usuarioSeleccionado ? Number(usuarioSeleccionado.idEquipo) : null
 
   try {
     setMassiveLoading(true)
@@ -241,6 +250,7 @@ export default function CargaLeads() {
       ...row,
       idUser,
       idEmpresa,
+      idEquip,
     }))
 
     const resp = await importarProspectosJson(payload)

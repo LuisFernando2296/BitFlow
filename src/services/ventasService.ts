@@ -21,6 +21,7 @@ export type ProspectoPayload = {
   origen?: string
   idUser?: number | null
   idEmpresa?: number | null
+  idEquip?: number | null
 }
 
 export type ProspectosConteos = {
