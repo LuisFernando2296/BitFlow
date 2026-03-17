@@ -33,12 +33,13 @@ import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutline
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 
-// ✅ servicios (ajusta rutas/nombres a tu proyecto)
+// ✅ servicios
 import {
   getProspectosByUser,
   getNotasByRegNota,
   crearNotaByRegNota,
   actualizarStatusProspecto,
+  actualizarVentaProspecto,
   asignarProspectoManual,
   tomarProspecto,
 } from '../../../services/ventasService'
@@ -132,11 +133,11 @@ export default function ProspectosTableDemo(props: {
   esMaster?: boolean
   usuariosVentas?: UsuarioCatalogo[]
   refreshKey?: number
-  currentUserId?: number // 👈 id del usuario logueado (quien escribe notas)
+  currentUserId?: number
 }) {
   const esMaster = !!props.esMaster
   const usuariosVentas = props.usuariosVentas ?? []
-  const currentUserId = props.currentUserId ?? props.idUser // fallback
+  const currentUserId = props.currentUserId ?? props.idUser
 
   const [prospectos, setProspectos] = useState<Prospecto[]>([])
   const [loading, setLoading] = useState(false)
@@ -188,7 +189,6 @@ export default function ProspectosTableDemo(props: {
     }
   }
 
-  // 🔁 recargar cuando cambia el usuario O refreshKey
   useEffect(() => {
     loadProspectosUser()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,6 +254,65 @@ export default function ProspectosTableDemo(props: {
     }
   }
 
+  // ───────────── Modal edición venta/folio/comentarios
+  const [openEdit, setOpenEdit] = useState(false)
+  const [editProspecto, setEditProspecto] = useState<Prospecto | null>(null)
+  const [editFolio, setEditFolio] = useState('')
+  const [editVenta, setEditVenta] = useState('')
+  const [editComentarios, setEditComentarios] = useState('')
+
+  const abrirModalEdicion = (p: Prospecto) => {
+    setEditProspecto(p)
+    setEditFolio(p.folio ?? '')
+    setEditVenta(p.venta != null ? String(p.venta) : '')
+    setEditComentarios(p.comentarios ?? '')
+    setOpenEdit(true)
+  }
+
+  const cerrarModalEdicion = () => {
+    setOpenEdit(false)
+    setEditProspecto(null)
+    setEditFolio('')
+    setEditVenta('')
+    setEditComentarios('')
+  }
+
+  const guardarEdicion = async () => {
+    if (!editProspecto) return
+
+    try {
+      setLoading(true)
+
+      const body = {
+        folio: editFolio || null,
+        venta: editVenta !== '' ? Number(editVenta) : null,
+        comentarios: editComentarios || null,
+      }
+
+      const resp = await actualizarVentaProspecto(editProspecto.id, body)
+
+      if (!resp?.ok) {
+        showSnackbar(resp?.msg || 'No se pudieron guardar los datos', 'error')
+        return
+      }
+
+      setProspectos((prev) =>
+        prev.map((p) =>
+          p.id === editProspecto.id ? { ...p, ...resp.data } : p,
+        ),
+      )
+
+      showSnackbar('Datos de venta actualizados correctamente', 'success')
+      cerrarModalEdicion()
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.msg || e.message || 'Error al guardar los datos de venta'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // ───────────── Notas (por regNota)
   const [openNotas, setOpenNotas] = useState(false)
   const [notas, setNotas] = useState<NotaProsp[]>([])
@@ -264,11 +323,11 @@ export default function ProspectosTableDemo(props: {
   const [prospectoNotas, setProspectoNotas] = useState<Prospecto | null>(null)
 
   useEffect(() => {
-  if (openNotas) {
-    setNotaTexto('')
-    setArchivo(null)
-  }
-}, [prospectoNotas, openNotas])
+    if (openNotas) {
+      setNotaTexto('')
+      setArchivo(null)
+    }
+  }, [prospectoNotas, openNotas])
 
   const cargarNotas = async (regNota: string) => {
     try {
@@ -290,17 +349,16 @@ export default function ProspectosTableDemo(props: {
   }
 
   const abrirModalNotas = async (p: Prospecto) => {
-  setProspectoNotas(p)
-  setOpenNotas(true)
+    setProspectoNotas(p)
+    setOpenNotas(true)
 
-  // si NO hay regNota todavía, solo abre el modal vacío
-  if (!p.regNota) {
-    setNotas([])
-    return
+    if (!p.regNota) {
+      setNotas([])
+      return
+    }
+
+    await cargarNotas(p.regNota)
   }
-
-  await cargarNotas(p.regNota)
-}
 
   const handleGuardarNota = async () => {
     if (!prospectoNotas?.regNota) return
@@ -338,34 +396,34 @@ export default function ProspectosTableDemo(props: {
   }
 
   const handleTomarProspecto = async (p: Prospecto) => {
-  if (!currentUserId) {
-    showSnackbar('Usuario no identificado.', 'error')
-    return
-  }
-
-  try {
-    setLoading(true)
-
-    const resp = await tomarProspecto({
-      idProspecto: p.id,
-      idUser: currentUserId,
-    })
-
-    if (!resp?.ok) {
-      showSnackbar(resp?.msg || 'No se pudo tomar el prospecto', 'error')
+    if (!currentUserId) {
+      showSnackbar('Usuario no identificado.', 'error')
       return
     }
 
-    showSnackbar(resp?.msg || 'Prospecto tomado correctamente', 'success')
-    await loadProspectosUser()
-  } catch (e: any) {
-    showSnackbar(e?.response?.data?.msg || e.message || 'Error al tomar prospecto', 'error')
-  } finally {
-    setLoading(false)
-  }
-}
+    try {
+      setLoading(true)
 
-  // ───────────── Asignación manual (opcional)
+      const resp = await tomarProspecto({
+        idProspecto: p.id,
+        idUser: currentUserId,
+      })
+
+      if (!resp?.ok) {
+        showSnackbar(resp?.msg || 'No se pudo tomar el prospecto', 'error')
+        return
+      }
+
+      showSnackbar(resp?.msg || 'Prospecto tomado correctamente', 'success')
+      await loadProspectosUser()
+    } catch (e: any) {
+      showSnackbar(e?.response?.data?.msg || e.message || 'Error al tomar prospecto', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ───────────── Asignación manual
   const [openAssign, setOpenAssign] = useState(false)
   const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
@@ -382,13 +440,16 @@ export default function ProspectosTableDemo(props: {
       showSnackbar('Selecciona un usuario de ventas.', 'warning')
       return
     }
+
     try {
       setLoading(true)
       const resp = await asignarProspectoManual(assignProspecto.id, Number(selectedUserId))
+
       if (!resp?.ok) {
         showSnackbar(resp?.msg || 'No se pudo asignar el prospecto', 'error')
         return
       }
+
       showSnackbar('Prospecto asignado correctamente.', 'success')
       setOpenAssign(false)
       await loadProspectosUser()
@@ -402,9 +463,6 @@ export default function ProspectosTableDemo(props: {
 
   return (
     <Box>
-      {/* ✅ OMITIDO: Header / chips / botón tomar prospectos */}
-
-      {/* Filtros */}
       <Paper
         elevation={0}
         sx={{
@@ -472,7 +530,6 @@ export default function ProspectosTableDemo(props: {
         </Stack>
       )}
 
-      {/* Tabla */}
       <Paper
         sx={{
           borderRadius: 2,
@@ -529,11 +586,11 @@ export default function ProspectosTableDemo(props: {
 
                   <TableCell>
                     <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="Editar datos de venta (por conectar si quieres)">
+                      <Tooltip title="Editar datos de venta">
                         <span>
                           <IconButton
                             size="small"
-                            onClick={() => showSnackbar('Edición: pendiente', 'info')}
+                            onClick={() => abrirModalEdicion(p)}
                           >
                             <EditOutlinedIcon fontSize="small" />
                           </IconButton>
@@ -592,6 +649,42 @@ export default function ProspectosTableDemo(props: {
         />
       </Paper>
 
+      {/* Modal editar folio / venta / comentarios */}
+      <Dialog open={openEdit} onClose={cerrarModalEdicion} maxWidth="sm" fullWidth>
+        <DialogTitle>Editar datos de venta</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <TextField
+              label="Folio"
+              fullWidth
+              value={editFolio}
+              onChange={(e) => setEditFolio(e.target.value)}
+            />
+            <TextField
+              label="Monto de venta"
+              type="number"
+              fullWidth
+              value={editVenta}
+              onChange={(e) => setEditVenta(e.target.value)}
+            />
+            <TextField
+              label="Comentarios"
+              fullWidth
+              multiline
+              minRows={3}
+              value={editComentarios}
+              onChange={(e) => setEditComentarios(e.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cerrarModalEdicion}>Cancelar</Button>
+          <Button variant="contained" onClick={guardarEdicion} disabled={loading}>
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Modal asignar manual */}
       <Dialog open={openAssign} onClose={() => setOpenAssign(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Asignar prospecto a usuario de ventas</DialogTitle>
@@ -626,11 +719,16 @@ export default function ProspectosTableDemo(props: {
       </Dialog>
 
       {/* Modal notas */}
-      <Dialog open={openNotas} onClose={() => {
+      <Dialog
+        open={openNotas}
+        onClose={() => {
           setOpenNotas(false)
           setNotaTexto('')
           setArchivo(null)
-        }} maxWidth="sm" fullWidth>
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Notas del prospecto {prospectoNotas?.nombre ?? ''}</DialogTitle>
 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
