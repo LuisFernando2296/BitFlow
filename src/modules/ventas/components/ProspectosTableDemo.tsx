@@ -4,6 +4,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -54,6 +55,10 @@ type UsuarioCatalogo = {
 type Prospecto = {
   id: number
   idUser: number | null
+  lastIdUser?: number | null
+  idUserAdmin?: number | null
+  idEquip?: number | null
+  idEmpresa?: number | null
   nombre: string
   telefono: string | number
   correo: string
@@ -66,6 +71,14 @@ type Prospecto = {
   comentarios?: string | null
   regNota?: string | null
   usuario?: string | null
+  ultimoUsuario?: string | null
+  usuarioAdmin?: string | null
+  equipoNombre?: string | null
+  noContFlag?: number | null
+  noContAt?: string | null
+  noContExpiresAt?: string | null
+  primerContactoAt?: string | null
+  primerContactoExpiresAt?: string | null
 }
 
 type NotaProsp = {
@@ -128,6 +141,56 @@ function StatusPill({ status }: { status: number }) {
   )
 }
 
+function formatRemainingTime(targetDate?: string | null) {
+  if (!targetDate) return '-'
+
+  const now = new Date().getTime()
+  const target = new Date(targetDate).getTime()
+  const diff = target - now
+
+  if (diff <= 0) return 'Vencido'
+
+  const totalMinutes = Math.floor(diff / (1000 * 60))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+function getCountdownInfo(p: Prospecto) {
+  if (p.status === 4 && p.noContExpiresAt) {
+    return {
+      label: formatRemainingTime(p.noContExpiresAt),
+      type: 'noContesta' as const,
+    }
+  }
+
+  if (p.status === 1 && p.primerContactoExpiresAt && p.idUser) {
+    return {
+      label: formatRemainingTime(p.primerContactoExpiresAt),
+      type: 'primerContacto' as const,
+    }
+  }
+
+  return {
+    label: '-',
+    type: 'none' as const,
+  }
+}
+
+function getCountdownChipColor(
+  label: string,
+  type: 'noContesta' | 'primerContacto' | 'none',
+) {
+  if (label === 'Vencido') return 'error'
+  if (type === 'noContesta') return 'warning'
+  if (type === 'primerContacto') return 'info'
+  return 'default'
+}
+
 export default function ProspectosTableDemo(props: {
   idUser: number
   esMaster?: boolean
@@ -146,6 +209,17 @@ export default function ProspectosTableDemo(props: {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(0)
   const [page, setPage] = useState(0)
+
+  // fuerza re-render cada minuto para actualizar contadores
+  const [, setNowTick] = useState(Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowTick(Date.now())
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   // snackbar
   const [snackbar, setSnackbar] = useState({
@@ -212,6 +286,10 @@ export default function ProspectosTableDemo(props: {
           p.origen ?? '',
           p.folio ?? '',
           p.comentarios ?? '',
+          p.usuario ?? '',
+          p.ultimoUsuario ?? '',
+          p.usuarioAdmin ?? '',
+          p.equipoNombre ?? '',
         ]
           .join(' ')
           .toLowerCase()
@@ -542,6 +620,8 @@ export default function ProspectosTableDemo(props: {
             <TableHead>
               <TableRow>
                 <TableCell>Nombre</TableCell>
+                <TableCell>Último usuario</TableCell>
+                <TableCell>Tiempo restante</TableCell>
                 <TableCell>Teléfono</TableCell>
                 <TableCell>Correo</TableCell>
                 <TableCell>Origen</TableCell>
@@ -555,79 +635,94 @@ export default function ProspectosTableDemo(props: {
             </TableHead>
 
             <TableBody>
-              {paginados.map((p) => (
-                <TableRow key={p.id} hover>
-                  <TableCell>{p.nombre}</TableCell>
-                  <TableCell>{p.telefono}</TableCell>
-                  <TableCell>{p.correo}</TableCell>
-                  <TableCell>{p.origen || '-'}</TableCell>
-                  <TableCell>{p.folio || '-'}</TableCell>
-                  <TableCell>{formatCurrency(p.venta ?? null)}</TableCell>
-                  <TableCell>{p.fechaAlta ? new Date(p.fechaAlta).toLocaleDateString() : '-'}</TableCell>
+              {paginados.map((p) => {
+                const countdown = getCountdownInfo(p)
 
-                  <TableCell>
-                    <StatusPill status={p.status} />
-                  </TableCell>
+                return (
+                  <TableRow key={p.id} hover>
+                    <TableCell>{p.nombre}</TableCell>
+                    <TableCell>{p.ultimoUsuario?.trim() ? p.ultimoUsuario : '-'}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={countdown.label}
+                        color={getCountdownChipColor(countdown.label, countdown.type)}
+                        variant={countdown.label === '-' ? 'outlined' : 'filled'}
+                      />
+                    </TableCell>
+                    <TableCell>{p.telefono}</TableCell>
+                    <TableCell>{p.correo}</TableCell>
+                    <TableCell>{p.origen || '-'}</TableCell>
+                    <TableCell>{p.folio || '-'}</TableCell>
+                    <TableCell>{formatCurrency(p.venta ?? null)}</TableCell>
+                    <TableCell>
+                      {p.fechaAlta ? new Date(p.fechaAlta).toLocaleDateString() : '-'}
+                    </TableCell>
 
-                  <TableCell>
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                      <Select
-                        value={p.status}
-                        onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
-                      >
-                        <MenuItem value={1}>Nuevo</MenuItem>
-                        <MenuItem value={2}>En proceso</MenuItem>
-                        <MenuItem value={3}>Cerrado</MenuItem>
-                        <MenuItem value={4}>No contesta</MenuItem>
-                        <MenuItem value={5}>Balón</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </TableCell>
+                    <TableCell>
+                      <StatusPill status={p.status} />
+                    </TableCell>
 
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="Editar datos de venta">
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => abrirModalEdicion(p)}
-                          >
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
+                    <TableCell>
+                      <FormControl size="small" sx={{ minWidth: 160 }}>
+                        <Select
+                          value={p.status}
+                          onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
+                        >
+                          <MenuItem value={1}>Nuevo</MenuItem>
+                          <MenuItem value={2}>En proceso</MenuItem>
+                          <MenuItem value={3}>Cerrado</MenuItem>
+                          <MenuItem value={4}>No contesta</MenuItem>
+                          <MenuItem value={5}>Balón</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </TableCell>
 
-                      {esMaster && usuariosVentas.length > 0 && (
-                        <Tooltip title="Asignar manualmente">
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Editar datos de venta">
                           <span>
-                            <IconButton size="small" onClick={() => abrirModalAsignar(p)}>
-                              <PersonAddAlt1OutlinedIcon fontSize="small" />
+                            <IconButton
+                              size="small"
+                              onClick={() => abrirModalEdicion(p)}
+                            >
+                              <EditOutlinedIcon fontSize="small" />
                             </IconButton>
                           </span>
                         </Tooltip>
-                      )}
 
-                      {p.idUser !== currentUserId && (
-                        <Tooltip title="Tomar prospecto">
-                          <IconButton size="small" color="primary" onClick={() => handleTomarProspecto(p)}>
-                            <PersonAddAlt1OutlinedIcon fontSize="small" />
+                        {esMaster && usuariosVentas.length > 0 && (
+                          <Tooltip title="Asignar manualmente">
+                            <span>
+                              <IconButton size="small" onClick={() => abrirModalAsignar(p)}>
+                                <PersonAddAlt1OutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+
+                        {p.idUser !== currentUserId && (
+                          <Tooltip title="Tomar prospecto">
+                            <IconButton size="small" color="primary" onClick={() => handleTomarProspecto(p)}>
+                              <PersonAddAlt1OutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        <Tooltip title="Ver / agregar notas">
+                          <IconButton size="small" onClick={() => abrirModalNotas(p)}>
+                            <ChatBubbleOutlineOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-
-                      <Tooltip title="Ver / agregar notas">
-                        <IconButton size="small" onClick={() => abrirModalNotas(p)}>
-                          <ChatBubbleOutlineOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
 
               {!loading && paginados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
+                  <TableCell colSpan={12} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No hay prospectos para mostrar.
                     </Typography>
