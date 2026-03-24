@@ -106,7 +106,59 @@ function renderStatusChip(status: number) {
   return <Chip size="small" color={color} label={label} />
 }
 
+function formatRemainingTime(targetDate?: string | null) {
+  if (!targetDate) return '-'
+
+  const now = new Date().getTime()
+  const target = new Date(targetDate).getTime()
+  const diff = target - now
+
+  if (diff <= 0) return 'Vencido'
+
+  const totalMinutes = Math.floor(diff / (1000 * 60))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+function getCountdownInfo(p: Prospecto) {
+  // Si está en status 4, manda el contador de no contesta (72h)
+  if (p.status === 4 && p.noContExpiresAt) {
+    return {
+      label: formatRemainingTime(p.noContExpiresAt),
+      type: 'noContesta' as const,
+    }
+  }
+
+  // Si está en status 1 y tiene contador de primer contacto (24h)
+  if (p.status === 1 && p.primerContactoExpiresAt && p.idUser) {
+    return {
+      label: formatRemainingTime(p.primerContactoExpiresAt),
+      type: 'primerContacto' as const,
+    }
+  }
+
+  return {
+    label: '-',
+    type: 'none' as const,
+  }
+}
+
 export default function ProspectosPage() {
+
+  const [, setNowTick] = useState(Date.now())
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    setNowTick(Date.now())
+  }, 60000) // cada minuto
+
+  return () => clearInterval(interval)
+}, [])
 
 const [user, setUser] = useState<any | null>(null)
 
@@ -626,6 +678,8 @@ const handleCloseSnackbar = (
               <TableRow>
                 <TableCell>Nombre</TableCell>
                 <TableCell>Usuario</TableCell>
+                <TableCell>Último usuario</TableCell>
+                <TableCell>Tiempo restante</TableCell>
                 <TableCell>Teléfono</TableCell>
                 <TableCell>Correo</TableCell>
                 <TableCell>Origen</TableCell>
@@ -638,85 +692,104 @@ const handleCloseSnackbar = (
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginados.map((p) => (
-                <TableRow key={p.id} hover>
-                  <TableCell>{p.nombre}</TableCell>
-                  <TableCell>{p.usuario || '-'}</TableCell>
-                  <TableCell>{p.telefono}</TableCell>
-                  <TableCell>{p.correo}</TableCell>
-                  <TableCell>{p.origen || '-'}</TableCell>
-                  <TableCell>{p.folio || '-'}</TableCell>
-                  <TableCell>{formatCurrency(p.venta)}</TableCell>
-                  <TableCell>
-                    {p.fechaAlta ? new Date(p.fechaAlta).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>{renderStatusChip(p.status)}</TableCell>
-                  <TableCell>
-                    <FormControl
-                      size="small"
-                      sx={{ minWidth: 160 }}
-                      disabled={!esMaster && [3, 4, 5].includes(p.status)}   // 👈 regla visual
-                    >
-                      <Select
-                        value={p.status}
-                        onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
-                      >
-                        <MenuItem value={1}>Nuevo</MenuItem>
-                        <MenuItem value={2}>En proceso</MenuItem>
-                        <MenuItem value={3}>Cerrado</MenuItem>
-                        <MenuItem value={4}>No contesta</MenuItem>
-                        <MenuItem value={5}>Balón</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </TableCell>
-                  <TableCell>
-              <Stack direction="row" spacing={0.5}>
-                {/* Botón editar venta (ya lo tenías) */}
-                <Tooltip
-                  title={
-                    !esMaster && [3, 4, 5].includes(p.status)
-                      ? 'Lead en estado final, no editable'
-                      : 'Editar datos de venta'
-                  }
-                >
-                  <span>
-                    <IconButton
-                      size="small"
-                      onClick={() => abrirModalEdicion(p)}
-                      disabled={!esMaster && [3, 4, 5].includes(p.status)}
-                    >
-                      <EditOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
+              {paginados.map((p) => {
+                    const countdown = getCountdownInfo(p)
 
-                {/* 🔹 NUEVO: Asignar manualmente (solo master) */}
-                {(esMaster || esAdmin) && (
-                    <Tooltip title="Asignar manualmente a un usuario de ventas">
-                      <span>
-                        <IconButton
-                          size="small"
-                          onClick={() => abrirModalAsignar(p)}
-                        >
-                          <PersonAddAlt1OutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  )}
+                    return (
+                      <TableRow key={p.id} hover>
+                        <TableCell>{p.nombre}</TableCell>
+                        <TableCell>{p.usuario || '-'}</TableCell>
+                        <TableCell>{p.ultimoUsuario?.trim() ? p.ultimoUsuario : '-'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={countdown.label}
+                            color={
+                              countdown.label === 'Vencido'
+                                ? 'error'
+                                : countdown.type === 'noContesta'
+                                ? 'warning'
+                                : countdown.type === 'primerContacto'
+                                ? 'info'
+                                : 'default'
+                            }
+                            variant={countdown.label === '-' ? 'outlined' : 'filled'}
+                          />
+                        </TableCell>
+                        <TableCell>{p.telefono}</TableCell>
+                        <TableCell>{p.correo}</TableCell>
+                        <TableCell>{p.origen || '-'}</TableCell>
+                        <TableCell>{p.folio || '-'}</TableCell>
+                        <TableCell>{formatCurrency(p.venta)}</TableCell>
+                        <TableCell>
+                          {p.fechaAlta ? new Date(p.fechaAlta).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell>{renderStatusChip(p.status)}</TableCell>
+                        <TableCell>
+                          <FormControl
+                            size="small"
+                            sx={{ minWidth: 160 }}
+                            disabled={!esMaster && [3, 4, 5].includes(p.status)}
+                          >
+                            <Select
+                              value={p.status}
+                              onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
+                            >
+                              <MenuItem value={1}>Nuevo</MenuItem>
+                              <MenuItem value={2}>En proceso</MenuItem>
+                              <MenuItem value={3}>Cerrado</MenuItem>
+                              <MenuItem value={4}>No contesta</MenuItem>
+                              <MenuItem value={5}>Balón</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5}>
+                            <Tooltip
+                              title={
+                                !esMaster && [3, 4, 5].includes(p.status)
+                                  ? 'Lead en estado final, no editable'
+                                  : 'Editar datos de venta'
+                              }
+                            >
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => abrirModalEdicion(p)}
+                                  disabled={!esMaster && [3, 4, 5].includes(p.status)}
+                                >
+                                  <EditOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
 
-                  <Tooltip title="Ver / agregar notas">
-                    <IconButton size="small" onClick={() => abrirModalNotas(p)}>
-                      <ChatBubbleOutlineOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-              </Stack>
-          </TableCell>
-                </TableRow>
-              ))}
+                            {(esMaster || esAdmin) && (
+                              <Tooltip title="Asignar manualmente a un usuario de ventas">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => abrirModalAsignar(p)}
+                                  >
+                                    <PersonAddAlt1OutlinedIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
+
+                            <Tooltip title="Ver / agregar notas">
+                              <IconButton size="small" onClick={() => abrirModalNotas(p)}>
+                                <ChatBubbleOutlineOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
 
               {!loading && paginados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} align="center">
+                  <TableCell colSpan={13} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No hay prospectos para mostrar.
                     </Typography>

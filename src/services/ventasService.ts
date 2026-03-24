@@ -33,6 +33,7 @@ export type ProspectosConteos = {
 export type Prospecto = {
   id: number
   idUser: number | null
+  lastIdUser?: number | null
   nombre: string
   telefono: string
   correo: string
@@ -44,6 +45,11 @@ export type Prospecto = {
   venta?: number | null
   comentarios?: string | null
   usuario?: string | null
+  ultimoUsuario?: string | null
+  noContAt?: string | null
+  noContExpiresAt?: string | null
+  primerContactoAt?: string | null
+  primerContactoExpiresAt?: string | null
 }
 
 export interface NotaProspecto {
