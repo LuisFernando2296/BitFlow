@@ -76,18 +76,24 @@ export default function UsuariosPage() {
   const rowsPerPage = 10
 
   const cargarUsuarios = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await getUsuariosRRHH()
-      setUsuarios(data)
-      setPage(0)
-    } catch (err: any) {
-      setError(err.message ?? 'Error al cargar usuarios')
-    } finally {
-      setLoading(false)
+  try {
+    setLoading(true)
+    setError(null)
+
+    if (!currentUserEmpresaId) {
+      setError('No se encontró la empresa del usuario logueado')
+      return
     }
+
+    const data = await getUsuariosRRHH(currentUserEmpresaId)
+    setUsuarios(data)
+    setPage(0)
+  } catch (err: any) {
+    setError(err.message ?? 'Error al cargar usuarios')
+  } finally {
+    setLoading(false)
   }
+}
 
   const cargarPuestos = async () => {
     try {

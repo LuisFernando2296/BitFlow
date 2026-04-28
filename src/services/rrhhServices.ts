@@ -17,6 +17,7 @@ export interface UsuarioRRHH {
   idPuesto?: number
   idEmpresa?: number
   idRol?: number
+  fechaIngreso?: string | null
   fechalngreso?: string | null
 }
 
@@ -25,18 +26,21 @@ export interface Puesto {
   nombre: string
 }
 
-// 🔹 Obtener todos los usuarios (RRHH)
-export async function getUsuariosRRHH(): Promise<UsuarioRRHH[]> {
-  const { data } = await axios.get<UsuarioRRHH[]>(`${API_URL}/usuarios`)
+// 🔹 Obtener usuarios RRHH por empresa
+export async function getUsuariosRRHH(idEmpresa: number): Promise<UsuarioRRHH[]> {
+  const { data } = await axios.get<UsuarioRRHH[]>(`${API_URL}/usuarios`, {
+    params: { idEmpresa },
+  })
+
   return data
 }
 
-// 🔹 Desactivar usuario (status = 2)
+// 🔹 Desactivar usuario
 export async function desactivarUsuario(id: number): Promise<void> {
   await axios.put(`${API_URL}/usuarios/desactivar/${id}`)
 }
 
-// 🔹 Actualizar datos del usuario (correo, teléfono, idPuesto)
+// 🔹 Actualizar datos del usuario
 export async function actualizarUsuario(
   id: number,
   payload: { correo: string; telefono: number | null; idPuesto: number }
@@ -44,13 +48,16 @@ export async function actualizarUsuario(
   await axios.put(`${API_URL}/usuarios/${id}`, payload)
 }
 
-// 🔹 Obtener catálogo de puestos
-export async function getPuestos(): Promise<Puesto[]> {
-  const { data } = await axios.get<Puesto[]>(`${API_URL}/catalogos/puestos`)
-  return data
+// 🔹 Obtener catálogo de puestos por empresa
+export async function getPuestos(idEmpresa: number): Promise<Puesto[]> {
+  const { data } = await axios.get(`${API_URL}/catalogos/puestos`, {
+    params: { idEmpresa },
+  })
+
+  return data.data ?? []
 }
 
-/* 🔹 CREAR NUEVO USUARIO (usa POST /usuarios/adduser) */
+// 🔹 Crear nuevo usuario
 export interface CrearUsuarioPayload {
   nombre: string
   apellido: string
@@ -59,13 +66,13 @@ export interface CrearUsuarioPayload {
   idEmpresa: number
   idPuesto: number
   idRol: number
-  fechalngreso: string // 'YYYY-MM-DD'
+  fechalngreso: string
 }
 
 export interface CrearUsuarioResponse {
   message: string
   usuario: UsuarioRRHH
-  password_temp: string // la pass que genera el backend
+  password_temp: string
 }
 
 export async function crearUsuario(
@@ -75,5 +82,6 @@ export async function crearUsuario(
     `${API_URL}/usuarios/adduser`,
     payload
   )
+
   return data
 }
