@@ -63,7 +63,7 @@ export function useEquiposPage() {
       }
 
       const [equiposResp, admins, usuarios] = await Promise.all([
-        getEquipos(),
+        getEquipos(idEmpresa),
         getAdminVentas(idEmpresa),
         getUsuariosVentas(idEmpresa),
       ])
@@ -120,6 +120,7 @@ export function useEquiposPage() {
       const resp = await crearEquipo({
         equipo: createNombre,
         idUser: Number(createIdLider),
+        idEmpresa,
         miembros: createMiembros.length ? createMiembros : undefined,
         sublideres: createSublideres.length ? createSublideres : undefined,
       })
@@ -127,7 +128,7 @@ export function useEquiposPage() {
       if (!resp.ok) {
         setError(resp.msg || 'Error al crear equipo')
         return
-      }
+}
 
       setOpenCreate(false)
       setCreateMiembros([])

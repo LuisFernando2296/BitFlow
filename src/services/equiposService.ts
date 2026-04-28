@@ -45,11 +45,12 @@ export type TeamDetailResponse = {
 // ======================
 // API calls
 // ======================
-export const getEquipos = async () => {
-  const res = await axios.get(`${API_URL}/ventas/equipos`, {
-    headers: getAuthHeaders(),
+export async function getEquipos(idEmpresa: number) {
+  const { data } = await axios.get(`${API_URL}/ventas/equipos`, {
+    params: { idEmpresa },
   })
-  return res.data as { ok: boolean; msg: string; data: TeamSummary[] }
+
+  return data
 }
 
 export const getEquipoDetalle = async (id: number) => {
@@ -62,9 +63,10 @@ export const getEquipoDetalle = async (id: number) => {
 // Crear equipo con miembros y sublíderes (rolEquipo: 1 sublíder, 2 miembro)
 export const crearEquipo = async (payload: {
   equipo: string
-  idUser: number                // líder principal (equipoVentas.idUser)
-  miembros?: number[]           // ids usuarios que estarán en el equipo
-  sublideres?: number[]         // subset de miembros que serán sublíderes
+  idUser: number
+  idEmpresa: number   // 👈 AGREGAR
+  miembros?: number[]
+  sublideres?: number[]
 }) => {
   const res = await axios.post(`${API_URL}/ventas/equipos/crear`, payload, {
     headers: getAuthHeaders(),
