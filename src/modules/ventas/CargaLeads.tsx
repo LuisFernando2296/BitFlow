@@ -138,7 +138,7 @@ export default function CargaLeads() {
     usuariosEquipo.find((u) => String(u.id) === String(manualIdUser)) || null
 
   const idUser = manualIdUser ? Number(manualIdUser) : null
-  const idEmpresa = manualIdUser ? Number(user.idEmpresa) : 0
+  const idEmpresa = Number(user.idEmpresa)
   const idEquip = usuarioSeleccionado ? Number(usuarioSeleccionado.idEquipo) : null
 
   try {
@@ -240,7 +240,7 @@ export default function CargaLeads() {
     usuariosEquipo.find((u) => String(u.id) === String(massiveIdUser)) || null
 
   const idUser = massiveIdUser ? Number(massiveIdUser) : null
-  const idEmpresa = massiveIdUser ? Number(user.idEmpresa) : 0
+  const idEmpresa = Number(user.idEmpresa)
   const idEquip = usuarioSeleccionado ? Number(usuarioSeleccionado.idEquipo) : null
 
   try {
