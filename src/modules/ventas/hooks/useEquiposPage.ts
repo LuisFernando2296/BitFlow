@@ -1,5 +1,6 @@
 // src/modules/ventas/hooks/useEquiposPage.ts
 import { useEffect, useMemo, useState } from 'react'
+import { getUser } from '../../../services/authService'
 import {
   getEquipos,
   getEquipoDetalle,
@@ -20,6 +21,9 @@ import {
 const ROWS_PER_PAGE = 10
 
 export function useEquiposPage() {
+  const currentUser = getUser()
+  const idEmpresa = currentUser?.idEmpresa ?? 0
+
   const [equipos, setEquipos] = useState<TeamSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,14 +54,25 @@ export function useEquiposPage() {
       setLoading(true)
       setError(null)
 
+      if (!idEmpresa) {
+        setError('No se encontró la empresa del usuario logueado')
+        setEquipos([])
+        setAdminsVentas([])
+        setUsuariosVentas([])
+        return
+      }
+
       const [equiposResp, admins, usuarios] = await Promise.all([
         getEquipos(),
-        getAdminVentas(),
-        getUsuariosVentas(),
+        getAdminVentas(idEmpresa),
+        getUsuariosVentas(idEmpresa),
       ])
 
-      if (!equiposResp.ok) setError(equiposResp.msg || 'Error al cargar equipos')
-      else setEquipos(equiposResp.data)
+      if (!equiposResp.ok) {
+        setError(equiposResp.msg || 'Error al cargar equipos')
+      } else {
+        setEquipos(equiposResp.data)
+      }
 
       setAdminsVentas(admins)
       setUsuariosVentas(usuarios)
@@ -71,11 +86,12 @@ export function useEquiposPage() {
   useEffect(() => {
     loadEquipos()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [idEmpresa])
 
   const filtrados = useMemo(() => {
     const term = search.toLowerCase().trim()
     if (!term) return equipos
+
     return equipos.filter((e) =>
       [e.equipo, e.lider ?? ''].join(' ').toLowerCase().includes(term),
     )
@@ -96,6 +112,7 @@ export function useEquiposPage() {
 
   const handleCreateEquipo = async () => {
     if (!createNombre || !createIdLider) return
+
     try {
       setLoading(true)
       setError(null)
@@ -114,6 +131,7 @@ export function useEquiposPage() {
 
       setOpenCreate(false)
       setCreateMiembros([])
+      setCreateSublideres([])
       await loadEquipos()
     } catch (e: any) {
       setError(e?.response?.data?.msg || e.message || 'Error al crear equipo')
@@ -132,10 +150,12 @@ export function useEquiposPage() {
     try {
       setDetailLoading(true)
       const resp = await getEquipoDetalle(idEquipo)
+
       if (!resp.ok) {
         setError(resp.msg || 'Error al obtener detalle')
         return
       }
+
       setDetailEquipo(resp.equipo)
       setDetailMiembros(resp.miembros)
     } catch (e: any) {
@@ -147,12 +167,14 @@ export function useEquiposPage() {
 
   const refreshDetalle = async () => {
     if (!detailEquipo) return
+
     const detalle = await getEquipoDetalle(detailEquipo.id)
     if (detalle.ok) setDetailMiembros(detalle.miembros)
   }
 
   const handleAddMiembro = async () => {
     if (!detailEquipo || nuevoMiembroId === '') return
+
     try {
       setDetailLoading(true)
       const resp = await agregarMiembroEquipo({
@@ -160,6 +182,7 @@ export function useEquiposPage() {
         idUser: Number(nuevoMiembroId),
         rolEquipo: 2,
       })
+
       if (resp.ok) {
         await refreshDetalle()
         setNuevoMiembroId('')
@@ -171,6 +194,7 @@ export function useEquiposPage() {
 
   const handleAddSublider = async () => {
     if (!detailEquipo || nuevoSubliderId === '') return
+
     try {
       setDetailLoading(true)
       const resp = await agregarMiembroEquipo({
@@ -178,6 +202,7 @@ export function useEquiposPage() {
         idUser: Number(nuevoSubliderId),
         rolEquipo: 1,
       })
+
       if (resp.ok) {
         await refreshDetalle()
         setNuevoSubliderId('')
@@ -189,6 +214,7 @@ export function useEquiposPage() {
 
   const handleRemoveMiembro = async (idUser: number) => {
     if (!detailEquipo) return
+
     try {
       setDetailLoading(true)
       await eliminarMiembroEquipo({ idEquipo: detailEquipo.id, idUser })
@@ -200,6 +226,7 @@ export function useEquiposPage() {
 
   const handleChangeRol = async (idUser: number, rolEquipo: 1 | 2) => {
     if (!detailEquipo) return
+
     try {
       setDetailLoading(true)
       await cambiarRolEquipo({ idEquipo: detailEquipo.id, idUser, rolEquipo })
@@ -210,13 +237,12 @@ export function useEquiposPage() {
   }
 
   const formatDate = (value: string | null) => {
-  if (!value) return '-'
-  const d = new Date(value)
-  return isNaN(d.getTime()) ? value : d.toLocaleDateString()
-}
+    if (!value) return '-'
+    const d = new Date(value)
+    return isNaN(d.getTime()) ? value : d.toLocaleDateString()
+  }
 
-const totalEquipos = equipos.length
-
+  const totalEquipos = equipos.length
 
   return {
     ROWS_PER_PAGE,
@@ -271,7 +297,7 @@ const totalEquipos = equipos.length
     // reload
     loadEquipos,
 
-     formatDate,
+    formatDate,
     totalEquipos,
   }
 }

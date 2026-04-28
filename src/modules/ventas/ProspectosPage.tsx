@@ -293,7 +293,7 @@ const handleGuardarNota = async () => {
     setAssignProspecto(p)
     setSelectedUserId(null)
 
-    const data = await getUsuariosVentas()
+    const data = await getUsuariosVentas(user.idEmpresa)
     setUsuariosVentas(data)
     setOpenAssign(true)
   } catch (e: any) {
@@ -729,7 +729,7 @@ const handleCloseSnackbar = (
                           <FormControl
                             size="small"
                             sx={{ minWidth: 160 }}
-                            disabled={!esMaster && [3, 4, 5].includes(p.status)}
+                            disabled={!esMaster && !esAdmin && [3, 4, 5].includes(p.status)}
                           >
                             <Select
                               value={p.status}
@@ -747,7 +747,7 @@ const handleCloseSnackbar = (
                           <Stack direction="row" spacing={0.5}>
                             <Tooltip
                               title={
-                                !esMaster && [3, 4, 5].includes(p.status)
+                                !esMaster && !esAdmin && [3, 4, 5].includes(p.status)
                                   ? 'Lead en estado final, no editable'
                                   : 'Editar datos de venta'
                               }
@@ -756,7 +756,7 @@ const handleCloseSnackbar = (
                                 <IconButton
                                   size="small"
                                   onClick={() => abrirModalEdicion(p)}
-                                  disabled={!esMaster && [3, 4, 5].includes(p.status)}
+                                  disabled={!esMaster && !esAdmin && [3, 4, 5].includes(p.status)}
                                 >
                                   <EditOutlinedIcon fontSize="small" />
                                 </IconButton>

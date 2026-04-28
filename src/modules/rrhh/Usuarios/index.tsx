@@ -54,6 +54,8 @@ export default function UsuariosPage() {
   // 🔐 Permisos por rol (solo idRol 1 o 2 pueden gestionar)
   const currentUser = getUser()
   const currentUserRoleId = currentUser?.idRol ?? 0
+  
+   const currentUserEmpresaId = currentUser?.idEmpresa ?? 0
   const canManageUsers = currentUserRoleId === 1 || currentUserRoleId === 2
 
   // ✏️ Edición
@@ -90,7 +92,7 @@ export default function UsuariosPage() {
   const cargarPuestos = async () => {
     try {
       setLoadingPuestos(true)
-      const data = await getPuestos()
+      const data = await getPuestos(currentUserEmpresaId)
       setPuestos(data)
     } catch (err) {
       console.error(err)

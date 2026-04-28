@@ -34,6 +34,7 @@ export default function AgregarUsuarioPage() {
   // usuario logueado para permisos
   const currentUser = getUser()
   const currentUserRoleId = currentUser?.idRol ?? 0
+   const currentUserEmpresaId = currentUser?.idEmpresa ?? 0
   const canManageUsers = currentUserRoleId === 1 || currentUserRoleId === 2
 
   // catálogos
@@ -62,9 +63,9 @@ export default function AgregarUsuarioPage() {
       setLoadingCatalogos(true)
       setError(null)
       const [emp, pue, rol] = await Promise.all([
-        getEmpresas(),
-        getPuestos(),
-        getRoles(),
+        getEmpresas(currentUserEmpresaId),
+        getPuestos(currentUserEmpresaId),
+        getRoles(currentUserEmpresaId),
       ])
       setEmpresas(emp)
       setPuestos(pue)
