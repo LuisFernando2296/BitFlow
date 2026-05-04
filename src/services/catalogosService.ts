@@ -36,6 +36,15 @@ export interface UsuarioEquipoVentas {
   equipo: string
 }
 
+
+export interface StatusCatalogo {
+  id: number
+  status: string
+  idStatus: number
+  statusOrder: number
+}
+
+
 // ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 //   Catálogo: Empresas
 // ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
@@ -104,4 +113,13 @@ export async function getUsuariosEquipoVentas(idEmpresa: number): Promise<Usuari
     params: { idEmpresa },
   })
   return data.data ?? []
+}
+
+export async function getStatusByEmpresa(idEmpresa: number): Promise<StatusCatalogo[]> {
+  const { data } = await axios.get(`${API_URL}/catalogos/status`, {
+    params: { idEmpresa },
+  })
+
+  if (!data?.ok) return []
+  return data.data
 }

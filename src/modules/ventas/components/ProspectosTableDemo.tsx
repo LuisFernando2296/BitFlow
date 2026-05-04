@@ -1,3 +1,4 @@
+// src/modules/ventas/components/ProspectosTableDemo.tsx
 import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
@@ -34,7 +35,8 @@ import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutline
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 
-// ✅ servicios
+import { getUser } from '../../../services/authService'
+
 import {
   getProspectosByUser,
   getNotasByRegNota,
@@ -44,6 +46,11 @@ import {
   asignarProspectoManual,
   tomarProspecto,
 } from '../../../services/ventasService'
+
+import {
+  getStatusByEmpresa,
+  type StatusCatalogo,
+} from '../../../services/catalogosService'
 
 type UsuarioCatalogo = {
   id: number
@@ -102,24 +109,27 @@ const formatCurrency = (value: number | null | undefined) => {
   })
 }
 
-const statusOptions = [
-  { value: 0, label: 'Todos' },
-  { value: 1, label: 'Nuevo' },
-  { value: 2, label: 'En proceso' },
-  { value: 3, label: 'Cerrado' },
-  { value: 4, label: 'No contesta' },
-  { value: 5, label: 'Balón' },
-]
+function StatusPill({
+  status,
+  statusCatalogo,
+}: {
+  status: number
+  statusCatalogo: StatusCatalogo[]
+}) {
+  const statusItem = statusCatalogo.find((s) => s.idStatus === status)
 
-function StatusPill({ status }: { status: number }) {
   const map: Record<number, { label: string; tone: string }> = {
-    1: { label: 'Nuevo', tone: 'info.main' },
-    2: { label: 'En proceso', tone: 'warning.main' },
-    3: { label: 'Cerrado', tone: 'success.main' },
-    4: { label: 'No contesta', tone: 'text.secondary' },
-    5: { label: 'Balón', tone: 'error.main' },
+    1: { label: statusItem?.status ?? 'Nuevo', tone: 'info.main' },
+    2: { label: statusItem?.status ?? 'En proceso', tone: 'warning.main' },
+    3: { label: statusItem?.status ?? 'Cerrado', tone: 'success.main' },
+    4: { label: statusItem?.status ?? 'No contesta', tone: 'text.secondary' },
+    5: { label: statusItem?.status ?? 'Balón', tone: 'error.main' },
   }
-  const item = map[status] ?? { label: 'Desconocido', tone: 'text.secondary' }
+
+  const item = map[status] ?? {
+    label: statusItem?.status ?? 'Desconocido',
+    tone: 'text.secondary',
+  }
 
   return (
     <Box
@@ -210,7 +220,9 @@ export default function ProspectosTableDemo(props: {
   const [statusFilter, setStatusFilter] = useState(0)
   const [page, setPage] = useState(0)
 
-  // fuerza re-render cada minuto para actualizar contadores
+  const [statusCatalogo, setStatusCatalogo] = useState<StatusCatalogo[]>([])
+  const [loadingStatus, setLoadingStatus] = useState(false)
+
   const [, setNowTick] = useState(Date.now())
 
   useEffect(() => {
@@ -221,7 +233,36 @@ export default function ProspectosTableDemo(props: {
     return () => clearInterval(interval)
   }, [])
 
-  // snackbar
+  useEffect(() => {
+    const cargarStatus = async () => {
+      const user = getUser()
+
+      if (!user?.idEmpresa) return
+
+      try {
+        setLoadingStatus(true)
+        const data = await getStatusByEmpresa(user.idEmpresa)
+        setStatusCatalogo(data)
+      } catch (error) {
+        console.error('Error al cargar status:', error)
+      } finally {
+        setLoadingStatus(false)
+      }
+    }
+
+    cargarStatus()
+  }, [])
+
+  const statusOptions = useMemo(() => {
+    return [
+      { value: 0, label: 'Todos' },
+      ...statusCatalogo.map((s) => ({
+        value: s.idStatus,
+        label: s.status,
+      })),
+    ]
+  }, [statusCatalogo])
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -238,7 +279,6 @@ export default function ProspectosTableDemo(props: {
     setSnackbar((prev) => ({ ...prev, open: false }))
   }
 
-  // ✅ Cargar prospectos del usuario
   const loadProspectosUser = async () => {
     try {
       setLoading(true)
@@ -268,7 +308,6 @@ export default function ProspectosTableDemo(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.idUser, props.refreshKey])
 
-  // filtros
   const filtrados = useMemo(() => {
     let lista = [...prospectos]
 
@@ -305,7 +344,6 @@ export default function ProspectosTableDemo(props: {
     return filtrados.slice(start, start + ROWS_PER_PAGE)
   }, [filtrados, page])
 
-  // ✅ cambiar status
   const handleStatusChange = async (idProspecto: number, nuevoStatus: number) => {
     try {
       setLoading(true)
@@ -318,10 +356,15 @@ export default function ProspectosTableDemo(props: {
 
       await loadProspectosUser()
 
-      let msg = 'Status actualizado correctamente'
-      if (nuevoStatus === 3) msg = 'Lead marcado como CERRADO'
-      if (nuevoStatus === 4) msg = 'Lead marcado como NO CONTESTA'
-      if (nuevoStatus === 5) msg = 'Lead marcado como BALÓN y se generó un nuevo registro'
+      const statusLabel =
+        statusCatalogo.find((s) => s.idStatus === nuevoStatus)?.status ??
+        'Status actualizado'
+
+      let msg = `Lead marcado como ${statusLabel}`
+
+      if (nuevoStatus === 5) {
+        msg = `Lead marcado como ${statusLabel} y se generó un nuevo registro`
+      }
 
       showSnackbar(msg, 'success')
     } catch (e: any) {
@@ -332,7 +375,6 @@ export default function ProspectosTableDemo(props: {
     }
   }
 
-  // ───────────── Modal edición venta/folio/comentarios
   const [openEdit, setOpenEdit] = useState(false)
   const [editProspecto, setEditProspecto] = useState<Prospecto | null>(null)
   const [editFolio, setEditFolio] = useState('')
@@ -391,7 +433,6 @@ export default function ProspectosTableDemo(props: {
     }
   }
 
-  // ───────────── Notas (por regNota)
   const [openNotas, setOpenNotas] = useState(false)
   const [notas, setNotas] = useState<NotaProsp[]>([])
   const [loadingNotas, setLoadingNotas] = useState(false)
@@ -501,7 +542,6 @@ export default function ProspectosTableDemo(props: {
     }
   }
 
-  // ───────────── Asignación manual
   const [openAssign, setOpenAssign] = useState(false)
   const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
@@ -572,6 +612,7 @@ export default function ProspectosTableDemo(props: {
             labelId="status-filter-label"
             label="Status"
             value={statusFilter}
+            disabled={loadingStatus}
             onChange={(e) => {
               setStatusFilter(Number(e.target.value))
               setPage(0)
@@ -660,20 +701,21 @@ export default function ProspectosTableDemo(props: {
                     </TableCell>
 
                     <TableCell>
-                      <StatusPill status={p.status} />
+                      <StatusPill status={p.status} statusCatalogo={statusCatalogo} />
                     </TableCell>
 
                     <TableCell>
                       <FormControl size="small" sx={{ minWidth: 160 }}>
                         <Select
                           value={p.status}
+                          disabled={loadingStatus}
                           onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
                         >
-                          <MenuItem value={1}>Nuevo</MenuItem>
-                          <MenuItem value={2}>En proceso</MenuItem>
-                          <MenuItem value={3}>Cerrado</MenuItem>
-                          <MenuItem value={4}>No contesta</MenuItem>
-                          <MenuItem value={5}>Balón</MenuItem>
+                          {statusCatalogo.map((s) => (
+                            <MenuItem key={s.id} value={s.idStatus}>
+                              {s.status}
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </TableCell>
@@ -744,7 +786,6 @@ export default function ProspectosTableDemo(props: {
         />
       </Paper>
 
-      {/* Modal editar folio / venta / comentarios */}
       <Dialog open={openEdit} onClose={cerrarModalEdicion} maxWidth="sm" fullWidth>
         <DialogTitle>Editar datos de venta</DialogTitle>
         <DialogContent>
@@ -780,7 +821,6 @@ export default function ProspectosTableDemo(props: {
         </DialogActions>
       </Dialog>
 
-      {/* Modal asignar manual */}
       <Dialog open={openAssign} onClose={() => setOpenAssign(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Asignar prospecto a usuario de ventas</DialogTitle>
         <DialogContent>
@@ -813,7 +853,6 @@ export default function ProspectosTableDemo(props: {
         </DialogActions>
       </Dialog>
 
-      {/* Modal notas */}
       <Dialog
         open={openNotas}
         onClose={() => {

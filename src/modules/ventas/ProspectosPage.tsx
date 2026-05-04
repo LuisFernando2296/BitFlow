@@ -34,7 +34,6 @@ import {
 import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined'
 import { getNotasProspecto, crearNotaProspecto, type NotaProspecto } from '../../services/ventasService'
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined'
-
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 
 import {
@@ -43,12 +42,13 @@ import {
   actualizarVentaProspecto,
   asignarProspectoManual,
   type Prospecto,
-  /* tomarProspectosLibres, */
 } from '../../services/ventasService'
 
 import {
   getUsuariosVentas,
+  getStatusByEmpresa,
   type UsuarioCatalogo,
+  type StatusCatalogo,
 } from '../../services/catalogosService'
 
 const formatCurrency = (value: number | null | undefined) => {
@@ -62,45 +62,29 @@ const formatCurrency = (value: number | null | undefined) => {
 
 const ROWS_PER_PAGE = 10
 
-
-// 🔹 NUEVO catálogo de status
-const statusOptions = [
-  { value: 0, label: 'Todos' },
-  { value: 1, label: 'Nuevo' },
-  { value: 2, label: 'En proceso' },
-  { value: 3, label: 'Cerrado' },
-  { value: 4, label: 'No contesta' },
-  { value: 5, label: 'Balón' },
-]
-
-function renderStatusChip(status: number) {
-  // ampliamos el tipo de color para que acepte más opciones
+function renderStatusChip(status: number, statusCatalogo: StatusCatalogo[]) {
   let color: 'default' | 'warning' | 'info' | 'success' | 'error' = 'default'
-  let label = ''
+  const statusItem = statusCatalogo.find((s) => s.idStatus === status)
+  const label = statusItem?.status ?? 'Desconocido'
 
   switch (status) {
     case 1:
       color = 'info'
-      label = 'Nuevo'
       break
     case 2:
       color = 'warning'
-      label = 'En proceso'
       break
     case 3:
       color = 'success'
-      label = 'Cerrado'
       break
     case 4:
       color = 'default'
-      label = 'No contesta'
       break
     case 5:
       color = 'error'
-      label = 'Balón'
       break
     default:
-      label = 'Desconocido'
+      color = 'default'
   }
 
   return <Chip size="small" color={color} label={label} />
@@ -126,7 +110,6 @@ function formatRemainingTime(targetDate?: string | null) {
 }
 
 function getCountdownInfo(p: Prospecto) {
-  // Si está en status 4, manda el contador de no contesta (72h)
   if (p.status === 4 && p.noContExpiresAt) {
     return {
       label: formatRemainingTime(p.noContExpiresAt),
@@ -134,7 +117,6 @@ function getCountdownInfo(p: Prospecto) {
     }
   }
 
-  // Si está en status 1 y tiene contador de primer contacto (24h)
   if (p.status === 1 && p.primerContactoExpiresAt && p.idUser) {
     return {
       label: formatRemainingTime(p.primerContactoExpiresAt),
@@ -149,161 +131,202 @@ function getCountdownInfo(p: Prospecto) {
 }
 
 export default function ProspectosPage() {
-
   const [, setNowTick] = useState(Date.now())
 
-useEffect(() => {
-  const interval = setInterval(() => {
-    setNowTick(Date.now())
-  }, 60000) // cada minuto
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowTick(Date.now())
+    }, 60000)
 
-  return () => clearInterval(interval)
-}, [])
+    return () => clearInterval(interval)
+  }, [])
 
-const [user, setUser] = useState<any | null>(null)
+  const [user, setUser] = useState<any | null>(null)
+  const [statusCatalogo, setStatusCatalogo] = useState<StatusCatalogo[]>([])
+  const [loadingStatus, setLoadingStatus] = useState(false)
 
   useEffect(() => {
     setUser(getUser())
   }, [])
 
+  useEffect(() => {
+    const cargarStatus = async () => {
+      const loggedUser = getUser()
+
+      if (!loggedUser?.idEmpresa) return
+
+      try {
+        setLoadingStatus(true)
+        const data = await getStatusByEmpresa(loggedUser.idEmpresa)
+        setStatusCatalogo(data)
+      } catch (error) {
+        console.error('Error al cargar status:', error)
+      } finally {
+        setLoadingStatus(false)
+      }
+    }
+
+    cargarStatus()
+  }, [])
+
   const esMaster = user?.idRol === 1
-   const esAdmin = user?.idRol === 2
-/* const esVendedor = user?.idRol === 3 && user?.idPuesto === 1 */
-const [openAssign, setOpenAssign] = useState(false)
-const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
-const [usuariosVentas, setUsuariosVentas] = useState<UsuarioCatalogo[]>([])
-const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
-const [loadingUsuarios, setLoadingUsuarios] = useState(false)
-const [openNotas, setOpenNotas] = useState(false)
-const [notas, setNotas] = useState<NotaProspecto[]>([])
-const [notaTexto, setNotaTexto] = useState('')
-const [archivo, setArchivo] = useState<File | null>(null)
-const [loadingNotas, setLoadingNotas] = useState(false)
-const [guardandoNota, setGuardandoNota] = useState(false)
-const [prospectoNotas, setProspectoNotas] = useState<Prospecto | null>(null)
+  const esAdmin = user?.idRol === 2
 
-/* const handleTomarProspectosLibres = async () => {
-  if (!user) {
-    showSnackbar('No se encontró el usuario logueado.', 'error')
-    return
+  const [openAssign, setOpenAssign] = useState(false)
+  const [assignProspecto, setAssignProspecto] = useState<Prospecto | null>(null)
+  const [usuariosVentas, setUsuariosVentas] = useState<UsuarioCatalogo[]>([])
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false)
+
+  const [openNotas, setOpenNotas] = useState(false)
+  const [notas, setNotas] = useState<NotaProspecto[]>([])
+  const [notaTexto, setNotaTexto] = useState('')
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [loadingNotas, setLoadingNotas] = useState(false)
+  const [guardandoNota, setGuardandoNota] = useState(false)
+  const [prospectoNotas, setProspectoNotas] = useState<Prospecto | null>(null)
+
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'error' | 'info' | 'warning'
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
+
+  const showSnackbar = (
+    message: string,
+    severity: 'success' | 'error' | 'info' | 'warning' = 'success'
+  ) => {
+    setSnackbar({ open: true, message, severity })
   }
 
-  try {
-    setLoading(true)
-    const resp = await tomarProspectosLibres(user.id)
+  const handleCloseSnackbar = (
+    _event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === 'clickaway') return
+    setSnackbar((prev) => ({ ...prev, open: false }))
+  }
 
-    if (!resp.ok) {
-      showSnackbar(resp.msg || 'No se pudieron asignar prospectos libres.', 'error')
+  const [prospectos, setProspectos] = useState<Prospecto[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState(0)
+  const [page, setPage] = useState(0)
+
+  const [openEdit, setOpenEdit] = useState(false)
+  const [editProspecto, setEditProspecto] = useState<Prospecto | null>(null)
+  const [editFolio, setEditFolio] = useState('')
+  const [editVenta, setEditVenta] = useState<string>('')
+  const [editComentarios, setEditComentarios] = useState('')
+
+  const statusOptions = useMemo(() => {
+    return [
+      { value: 0, label: 'Todos' },
+      ...statusCatalogo.map((s) => ({
+        value: s.idStatus,
+        label: s.status,
+      })),
+    ]
+  }, [statusCatalogo])
+
+  const cargarNotas = async (idProspecto: number) => {
+    try {
+      setLoadingNotas(true)
+      const resp = await getNotasProspecto(idProspecto)
+
+      if (!resp.ok) {
+        showSnackbar(resp.msg || 'Error al cargar notas', 'error')
+        return
+      }
+
+      setNotas(resp.data)
+    } catch (e: any) {
+      const msg = e?.response?.data?.msg || e.message || 'Error al cargar notas'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoadingNotas(false)
+    }
+  }
+
+  const abrirModalNotas = async (p: Prospecto) => {
+    setProspectoNotas(p)
+    setOpenNotas(true)
+    await cargarNotas(p.id)
+  }
+
+  const handleGuardarNota = async () => {
+    if (!prospectoNotas || !user) {
+      showSnackbar('No se pudo identificar el usuario o el prospecto', 'error')
       return
     }
 
-    showSnackbar(resp.msg, 'success')
-    // recargar la lista para verlos ya asignados
-    await loadProspectos()
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.msg || e.message || 'Error al tomar prospectos libres.'
-    showSnackbar(msg, 'error')
-  } finally {
-    setLoading(false)
-  }
-} */
-
-const cargarNotas = async (idProspecto: number) => {
-  try {
-    setLoadingNotas(true)
-    const resp = await getNotasProspecto(idProspecto)
-
-    if (!resp.ok) {
-      showSnackbar(resp.msg || 'Error al cargar notas', 'error')
+    if (!notaTexto.trim() && !archivo) {
+      showSnackbar('Escribe una nota o adjunta un archivo', 'warning')
       return
     }
 
-    setNotas(resp.data)
-  } catch (e: any) {
-    const msg = e?.response?.data?.msg || e.message || 'Error al cargar notas'
-    showSnackbar(msg, 'error')
-  } finally {
-    setLoadingNotas(false)
-  }
-}
+    try {
+      setGuardandoNota(true)
 
-const abrirModalNotas = async (p: Prospecto) => {
-  setProspectoNotas(p)
-  setOpenNotas(true)
-  await cargarNotas(p.id)
-}
+      const formData = new FormData()
+      formData.append('idUser', String(user.id))
+      formData.append('nota', notaTexto.trim())
+      if (archivo) {
+        formData.append('file', archivo)
+      }
 
-/* const cerrarModalNotas = () => {
-  setOpenNotas(false)
-  setProspectoNotas(null)
-  setNotas([])
-  setNotaTexto('')
-} */
+      const resp = await crearNotaProspecto(prospectoNotas.id, formData)
 
-const handleGuardarNota = async () => {
-  if (!prospectoNotas || !user) {
-    showSnackbar('No se pudo identificar el usuario o el prospecto', 'error')
-    return
-  }
+      if (!resp.ok) {
+        showSnackbar(resp.msg || 'No se pudo guardar la nota', 'error')
+        return
+      }
 
-  if (!notaTexto.trim() && !archivo) {
-    showSnackbar('Escribe una nota o adjunta un archivo', 'warning')
-    return
-  }
+      setNotas((prev) => [...prev, resp.data])
+      setNotaTexto('')
+      setArchivo(null)
 
-  try {
-    setGuardandoNota(true)
-
-    // 👇 preparamos FormData para enviar texto + PDF
-    const formData = new FormData()
-    formData.append('idUser', String(user.id))
-    formData.append('nota', notaTexto.trim())
-    if (archivo) {
-      formData.append('file', archivo)
+      showSnackbar('Nota guardada correctamente', 'success')
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.msg || e.message || 'Error al guardar la nota'
+      showSnackbar(msg, 'error')
+    } finally {
+      setGuardandoNota(false)
     }
-
-    const resp = await crearNotaProspecto(prospectoNotas.id, formData)
-
-    if (!resp.ok) {
-      showSnackbar(resp.msg || 'No se pudo guardar la nota', 'error')
-      return
-    }
-
-    // agregamos la nueva nota al chat
-    setNotas((prev) => [...prev, resp.data])
-    setNotaTexto('')
-    setArchivo(null)
-
-    showSnackbar('Nota guardada correctamente', 'success')
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.msg || e.message || 'Error al guardar la nota'
-    showSnackbar(msg, 'error')
-  } finally {
-    setGuardandoNota(false)
   }
-}
 
   const abrirModalAsignar = async (p: Prospecto) => {
-  if (!esMaster && !esAdmin) return
+    if (!esMaster && !esAdmin) return
 
-  try {
-    setLoadingUsuarios(true)
-    setAssignProspecto(p)
-    setSelectedUserId(null)
+    if (!user?.idEmpresa) {
+      showSnackbar('No se encontró la empresa del usuario logueado', 'error')
+      return
+    }
 
-    const data = await getUsuariosVentas(user.idEmpresa)
-    setUsuariosVentas(data)
-    setOpenAssign(true)
-  } catch (e: any) {
-    console.error(e)
-    const msg = e?.response?.data?.msg || e.message || 'Error al cargar usuarios de ventas'
-    showSnackbar(msg, 'error')
-  } finally {
-    setLoadingUsuarios(false)
+    try {
+      setLoadingUsuarios(true)
+      setAssignProspecto(p)
+      setSelectedUserId(null)
+
+      const data = await getUsuariosVentas(user.idEmpresa)
+      setUsuariosVentas(data)
+      setOpenAssign(true)
+    } catch (e: any) {
+      console.error(e)
+      const msg =
+        e?.response?.data?.msg || e.message || 'Error al cargar usuarios de ventas'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoadingUsuarios(false)
+    }
   }
-}
 
   const cerrarModalAsignar = () => {
     setOpenAssign(false)
@@ -326,7 +349,6 @@ const handleGuardarNota = async () => {
         return
       }
 
-      // Actualizar localmente la lista de prospectos
       const updated = resp.data
       setProspectos((prev) =>
         prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
@@ -343,46 +365,6 @@ const handleGuardarNota = async () => {
       setLoading(false)
     }
   }
-  
-const [snackbar, setSnackbar] = useState<{
-  open: boolean
-  message: string
-  severity: 'success' | 'error' | 'info' | 'warning'
-}>({
-  open: false,
-  message: '',
-  severity: 'success',
-})
-
-const showSnackbar = (
-  message: string,
-  severity: 'success' | 'error' | 'info' | 'warning' = 'success'
-) => {
-  setSnackbar({ open: true, message, severity })
-}
-
-const handleCloseSnackbar = (
-  _event?: React.SyntheticEvent | Event,
-  reason?: string
-) => {
-  if (reason === 'clickaway') return
-  setSnackbar((prev) => ({ ...prev, open: false }))
-}
-
-  const [prospectos, setProspectos] = useState<Prospecto[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState(0)
-  const [page, setPage] = useState(0)
-
-  // Modal edición venta/folio
-  const [openEdit, setOpenEdit] = useState(false)
-  const [editProspecto, setEditProspecto] = useState<Prospecto | null>(null)
-  const [editFolio, setEditFolio] = useState('')
-  const [editVenta, setEditVenta] = useState<string>('')
-  const [editComentarios, setEditComentarios] = useState('')
 
   const loadProspectos = async () => {
     try {
@@ -392,12 +374,14 @@ const handleCloseSnackbar = (
         search: search || undefined,
         status: statusFilter || undefined,
       })
+
       if (!resp.ok) {
         const msg = resp.msg || 'Error al cargar prospectos'
         setError(msg)
         showSnackbar(msg, 'error')
         return
       }
+
       setProspectos(resp.data)
     } catch (e: any) {
       const msg = e?.response?.data?.msg || e.message || 'Error al cargar prospectos'
@@ -449,54 +433,52 @@ const handleCloseSnackbar = (
     return filtrados.slice(start, start + ROWS_PER_PAGE)
   }, [filtrados, page])
 
- const handleStatusChange = async (id: number, nuevoStatus: number) => {
-  try {
-    setLoading(true)
-    const resp = await actualizarStatusProspecto(id, nuevoStatus as any)
+  const handleStatusChange = async (id: number, nuevoStatus: number) => {
+    try {
+      setLoading(true)
+      const resp = await actualizarStatusProspecto(id, nuevoStatus as any)
 
-    if (!resp.ok) {
-      showSnackbar(resp.msg || 'No se pudo actualizar el status', 'error')
-      return
+      if (!resp.ok) {
+        showSnackbar(resp.msg || 'No se pudo actualizar el status', 'error')
+        return
+      }
+
+      await loadProspectos()
+
+      const statusLabel =
+        statusCatalogo.find((s) => s.idStatus === nuevoStatus)?.status ??
+        'Status actualizado'
+
+      let msg = `Lead marcado como ${statusLabel}`
+
+      if (nuevoStatus === 5) {
+        msg = `Lead marcado como ${statusLabel} y se generó un nuevo registro`
+      }
+
+      showSnackbar(msg, 'success')
+    } catch (e: any) {
+      console.error(e)
+      const msg =
+        e?.response?.data?.msg || e.message || 'Error al actualizar el status'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoading(false)
     }
-
-    // Recargar todo el listado desde backend (actualizado)
-    await loadProspectos()
-
-    // Mensaje según el status
-    let msg = 'Status actualizado correctamente'
-
-    if (nuevoStatus === 3) msg = 'Lead marcado como CERRADO'
-    if (nuevoStatus === 4) msg = 'Lead marcado como NO CONTESTA'
-    if (nuevoStatus === 5) msg = 'Lead marcado como BALÓN y se generó un nuevo registro'
-
-    showSnackbar(msg, 'success')
-  } catch (e: any) {
-    console.error(e)
-    const msg =
-      e?.response?.data?.msg || e.message || 'Error al actualizar el status'
-    showSnackbar(msg, 'error')
-  } finally {
-    setLoading(false)
   }
-}
 
   const handleApplyFilters = () => {
     setPage(0)
     loadProspectos()
   }
 
-  // 🔹 Actualizamos el resumen a los nuevos estados
-  const resumen = useMemo(() => {
-    const total = prospectos.length
-    const nuevos = prospectos.filter((p) => p.status === 1).length
-    const enProceso = prospectos.filter((p) => p.status === 2).length
-    const cerrados = prospectos.filter((p) => p.status === 3).length
-    const noContesta = prospectos.filter((p) => p.status === 4).length
-    const balon = prospectos.filter((p) => p.status === 5).length
-    return { total, nuevos, enProceso, cerrados, noContesta, balon }
-  }, [prospectos])
+  const resumenStatus = useMemo(() => {
+  return statusCatalogo.map((s) => ({
+    idStatus: s.idStatus,
+    status: s.status,
+    total: prospectos.filter((p) => p.status === s.idStatus).length,
+  }))
+}, [prospectos, statusCatalogo])
 
-  // --- Modal editar venta/folio ---
   const abrirModalEdicion = (p: Prospecto) => {
     setEditProspecto(p)
     setEditFolio(p.folio ?? '')
@@ -511,44 +493,43 @@ const handleCloseSnackbar = (
   }
 
   const guardarEdicion = async () => {
-  if (!editProspecto) return
+    if (!editProspecto) return
 
-  try {
-    setLoading(true)
-    const body = {
-      folio: editFolio || null,
-      venta: editVenta !== '' ? Number(editVenta) : null,
-      comentarios: editComentarios || null,
-    }
+    try {
+      setLoading(true)
+      const body = {
+        folio: editFolio || null,
+        venta: editVenta !== '' ? Number(editVenta) : null,
+        comentarios: editComentarios || null,
+      }
 
-    const resp = await actualizarVentaProspecto(editProspecto.id, body)
+      const resp = await actualizarVentaProspecto(editProspecto.id, body)
 
-    if (!resp.ok) {
-      showSnackbar(resp.msg || 'No se pudieron guardar los datos', 'error')
-      return
-    }
+      if (!resp.ok) {
+        showSnackbar(resp.msg || 'No se pudieron guardar los datos', 'error')
+        return
+      }
 
-    setProspectos((prev) =>
-      prev.map((p) =>
-        p.id === editProspecto.id ? { ...p, ...resp.data } : p
+      setProspectos((prev) =>
+        prev.map((p) =>
+          p.id === editProspecto.id ? { ...p, ...resp.data } : p
+        )
       )
-    )
 
-    showSnackbar('Datos de venta actualizados correctamente', 'success')
-    cerrarModalEdicion()
-  } catch (e: any) {
-    console.error(e)
-    const msg =
-      e?.response?.data?.msg || e.message || 'Error al guardar los datos de venta'
-    showSnackbar(msg, 'error')
-  } finally {
-    setLoading(false)
+      showSnackbar('Datos de venta actualizados correctamente', 'success')
+      cerrarModalEdicion()
+    } catch (e: any) {
+      console.error(e)
+      const msg =
+        e?.response?.data?.msg || e.message || 'Error al guardar los datos de venta'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   return (
     <Box p={3} maxWidth="lg" mx="auto">
-      {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
@@ -558,39 +539,30 @@ const handleCloseSnackbar = (
             Visualiza y administra el estado de los leads cargados al sistema.
           </Typography>
         </Box>
-          {/* <Button
-            variant="contained"
-            onClick={handleTomarProspectosLibres}
-            disabled={loading}
-            sx={{
-              textTransform: 'none',
-              px: 3,
-              py: 1.3,
-              borderRadius: 2,
-              fontWeight: 600,
-              background: 'linear-gradient(90deg, #1976d2 0%, #1565c0 100%)',
-              boxShadow: '0px 3px 12px rgba(25,118,210,0.35)',
-              '&:hover': {
-                background: 'linear-gradient(90deg, #1565c0 0%, #0d47a1 100%)',
-                boxShadow: '0px 5px 14px rgba(21,101,192,0.45)',
-              },
-            }}
-          >
-            Tomar prospectos 
-          </Button> */}
       </Stack>
+<Stack direction="row" spacing={1.5} mb={2} flexWrap="wrap">
+  <Chip label={`Total: ${prospectos.length}`} size="small" />
 
-      {/* Chips resumen */}
-      <Stack direction="row" spacing={1.5} mb={2} flexWrap="wrap">
-        <Chip label={`Total: ${resumen.total}`} size="small" />
-        <Chip label={`Nuevos: ${resumen.nuevos}`} size="small" color="info" />
-        <Chip label={`En proceso: ${resumen.enProceso}`} size="small" color="warning" />
-        <Chip label={`Cerrados: ${resumen.cerrados}`} size="small" color="success" />
-        <Chip label={`No contesta: ${resumen.noContesta}`} size="small" />
-        <Chip label={`Balón: ${resumen.balon}`} size="small" color="error" />
-      </Stack>
+  {resumenStatus.map((item) => (
+    <Chip
+      key={item.idStatus}
+      label={`${item.status}: ${item.total}`}
+      size="small"
+      color={
+        item.idStatus === 1
+          ? 'info'
+          : item.idStatus === 2
+          ? 'warning'
+          : item.idStatus === 3
+          ? 'success'
+          : item.idStatus === 5
+          ? 'error'
+          : 'default'
+      }
+    />
+  ))}
+</Stack>
 
-      {/* Barra de filtros */}
       <Paper
         elevation={0}
         sx={{
@@ -620,6 +592,7 @@ const handleCloseSnackbar = (
             label="Status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(Number(e.target.value))}
+            disabled={loadingStatus}
           >
             {statusOptions.map((opt) => (
               <MenuItem key={opt.value} value={opt.value}>
@@ -664,7 +637,6 @@ const handleCloseSnackbar = (
         </Stack>
       )}
 
-      {/* Tabla */}
       <Paper
         sx={{
           borderRadius: 2,
@@ -693,99 +665,100 @@ const handleCloseSnackbar = (
             </TableHead>
             <TableBody>
               {paginados.map((p) => {
-                    const countdown = getCountdownInfo(p)
+                const countdown = getCountdownInfo(p)
 
-                    return (
-                      <TableRow key={p.id} hover>
-                        <TableCell>{p.nombre}</TableCell>
-                        <TableCell>{p.usuario || '-'}</TableCell>
-                        <TableCell>{p.ultimoUsuario?.trim() ? p.ultimoUsuario : '-'}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={countdown.label}
-                            color={
-                              countdown.label === 'Vencido'
-                                ? 'error'
-                                : countdown.type === 'noContesta'
-                                ? 'warning'
-                                : countdown.type === 'primerContacto'
-                                ? 'info'
-                                : 'default'
-                            }
-                            variant={countdown.label === '-' ? 'outlined' : 'filled'}
-                          />
-                        </TableCell>
-                        <TableCell>{p.telefono}</TableCell>
-                        <TableCell>{p.correo}</TableCell>
-                        <TableCell>{p.origen || '-'}</TableCell>
-                        <TableCell>{p.folio || '-'}</TableCell>
-                        <TableCell>{formatCurrency(p.venta)}</TableCell>
-                        <TableCell>
-                          {p.fechaAlta ? new Date(p.fechaAlta).toLocaleDateString() : '-'}
-                        </TableCell>
-                        <TableCell>{renderStatusChip(p.status)}</TableCell>
-                        <TableCell>
-                          <FormControl
-                            size="small"
-                            sx={{ minWidth: 160 }}
-                            disabled={!esMaster && !esAdmin && [3, 4, 5].includes(p.status)}
-                          >
-                            <Select
-                              value={p.status}
-                              onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
+                return (
+                  <TableRow key={p.id} hover>
+                    <TableCell>{p.nombre}</TableCell>
+                    <TableCell>{p.usuario || '-'}</TableCell>
+                    <TableCell>{p.ultimoUsuario?.trim() ? p.ultimoUsuario : '-'}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={countdown.label}
+                        color={
+                          countdown.label === 'Vencido'
+                            ? 'error'
+                            : countdown.type === 'noContesta'
+                            ? 'warning'
+                            : countdown.type === 'primerContacto'
+                            ? 'info'
+                            : 'default'
+                        }
+                        variant={countdown.label === '-' ? 'outlined' : 'filled'}
+                      />
+                    </TableCell>
+                    <TableCell>{p.telefono}</TableCell>
+                    <TableCell>{p.correo}</TableCell>
+                    <TableCell>{p.origen || '-'}</TableCell>
+                    <TableCell>{p.folio || '-'}</TableCell>
+                    <TableCell>{formatCurrency(p.venta)}</TableCell>
+                    <TableCell>
+                      {p.fechaAlta ? new Date(p.fechaAlta).toLocaleDateString() : '-'}
+                    </TableCell>
+                    <TableCell>{renderStatusChip(p.status, statusCatalogo)}</TableCell>
+                    <TableCell>
+                      <FormControl
+                        size="small"
+                        sx={{ minWidth: 160 }}
+                        disabled={!esMaster && !esAdmin && [3, 4, 5].includes(p.status)}
+                      >
+                        <Select
+                          value={p.status}
+                          onChange={(e) => handleStatusChange(p.id, Number(e.target.value))}
+                          disabled={loadingStatus}
+                        >
+                          {statusCatalogo.map((s) => (
+                            <MenuItem key={s.id} value={s.idStatus}>
+                              {s.status}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip
+                          title={
+                            !esMaster && !esAdmin && [3, 4, 5].includes(p.status)
+                              ? 'Lead en estado final, no editable'
+                              : 'Editar datos de venta'
+                          }
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => abrirModalEdicion(p)}
+                              disabled={!esMaster && !esAdmin && [3, 4, 5].includes(p.status)}
                             >
-                              <MenuItem value={1}>Nuevo</MenuItem>
-                              <MenuItem value={2}>En proceso</MenuItem>
-                              <MenuItem value={3}>Cerrado</MenuItem>
-                              <MenuItem value={4}>No contesta</MenuItem>
-                              <MenuItem value={5}>Balón</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={0.5}>
-                            <Tooltip
-                              title={
-                                !esMaster && !esAdmin && [3, 4, 5].includes(p.status)
-                                  ? 'Lead en estado final, no editable'
-                                  : 'Editar datos de venta'
-                              }
-                            >
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => abrirModalEdicion(p)}
-                                  disabled={!esMaster && !esAdmin && [3, 4, 5].includes(p.status)}
-                                >
-                                  <EditOutlinedIcon fontSize="small" />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
 
-                            {(esMaster || esAdmin) && (
-                              <Tooltip title="Asignar manualmente a un usuario de ventas">
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => abrirModalAsignar(p)}
-                                  >
-                                    <PersonAddAlt1OutlinedIcon fontSize="small" />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            )}
-
-                            <Tooltip title="Ver / agregar notas">
-                              <IconButton size="small" onClick={() => abrirModalNotas(p)}>
-                                <ChatBubbleOutlineOutlinedIcon fontSize="small" />
+                        {(esMaster || esAdmin) && (
+                          <Tooltip title="Asignar manualmente a un usuario de ventas">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => abrirModalAsignar(p)}
+                              >
+                                <PersonAddAlt1OutlinedIcon fontSize="small" />
                               </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                            </span>
+                          </Tooltip>
+                        )}
+
+                        <Tooltip title="Ver / agregar notas">
+                          <IconButton size="small" onClick={() => abrirModalNotas(p)}>
+                            <ChatBubbleOutlineOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
 
               {!loading && paginados.length === 0 && (
                 <TableRow>
@@ -811,7 +784,6 @@ const handleCloseSnackbar = (
         />
       </Paper>
 
-      {/* Modal editar folio / venta / comentarios */}
       <Dialog open={openEdit} onClose={cerrarModalEdicion} maxWidth="sm" fullWidth>
         <DialogTitle>Editar datos de venta</DialogTitle>
         <DialogContent>
@@ -847,7 +819,6 @@ const handleCloseSnackbar = (
         </DialogActions>
       </Dialog>
 
-            {/* Modal asignar manualmente a usuario de ventas (solo master) */}
       <Dialog open={openAssign} onClose={cerrarModalAsignar} maxWidth="sm" fullWidth>
         <DialogTitle>Asignar prospecto a usuario de ventas</DialogTitle>
         <DialogContent>
@@ -866,27 +837,26 @@ const handleCloseSnackbar = (
               </Box>
             )}
             <Autocomplete<UsuarioCatalogo>
-                  options={usuariosVentas}
-                  loading={loadingUsuarios}
-                  getOptionLabel={(option) =>
-                    `${option.nombre} ${option.apellido} — ${option.correo}`
-                  }
-                  // valor actual según el id guardado
-                  value={
-                    usuariosVentas.find((u) => u.id === selectedUserId) || null
-                  }
-                  onChange={(_event, newValue) => {
-                    setSelectedUserId(newValue ? newValue.id : null)
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Usuario de ventas"
-                      size="small"
-                      placeholder="Buscar por nombre o correo..."
-                    />
-                  )}
+              options={usuariosVentas}
+              loading={loadingUsuarios}
+              getOptionLabel={(option) =>
+                `${option.nombre} ${option.apellido} — ${option.correo}`
+              }
+              value={
+                usuariosVentas.find((u) => u.id === selectedUserId) || null
+              }
+              onChange={(_event, newValue) => {
+                setSelectedUserId(newValue ? newValue.id : null)
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Usuario de ventas"
+                  size="small"
+                  placeholder="Buscar por nombre o correo..."
                 />
+              )}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -901,7 +871,6 @@ const handleCloseSnackbar = (
         </DialogActions>
       </Dialog>
 
-        {/* MODAL DE NOTAS */}
       <Dialog
         open={openNotas}
         onClose={() => setOpenNotas(false)}
@@ -920,7 +889,6 @@ const handleCloseSnackbar = (
             pt: 1,
           }}
         >
-          {/* Chat de notas */}
           <Box
             sx={{
               maxHeight: 320,
@@ -970,14 +938,12 @@ const handleCloseSnackbar = (
                           : 'text.primary',
                     }}
                   >
-                    {/* Texto de la nota */}
                     {n.nota && (
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
                         {n.nota}
                       </Typography>
                     )}
 
-                    {/* Enlace al PDF si existe url */}
                     {n.url && (
                       <Box mt={0.5}>
                         <Button
@@ -993,7 +959,6 @@ const handleCloseSnackbar = (
                       </Box>
                     )}
 
-                    {/* Footer: usuario y fecha */}
                     <Typography
                       variant="caption"
                       sx={{
@@ -1010,7 +975,6 @@ const handleCloseSnackbar = (
               ))}
           </Box>
 
-          {/* Nueva nota + archivo */}
           <Stack spacing={1.5}>
             <TextField
               label="Escribe una nota"
