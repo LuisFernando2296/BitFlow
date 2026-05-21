@@ -24,10 +24,11 @@ export interface User {
   grupoEmpresa?: string | null
 }
 
-export interface LoginResponse {
+export type LoginResponse = {
   ok: boolean
-  msg: string
-  user?: User
+  msg?: string
+  code?: string
+  user?: any
 }
 
 const USER_KEY = 'bitflow_user'
