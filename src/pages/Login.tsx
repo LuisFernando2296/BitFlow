@@ -30,26 +30,31 @@ export default function Login() {
   const [trialMessage, setTrialMessage] = useState('')
 
   useEffect(() => {
-    const user = getUser()
+  const user = getUser()
 
-    if (user) {
-      if (user.mustChangePass === 1) {
-        navigate('/first-login/change-password')
-      } else {
-        navigate('/dashboard')
-      }
+  if (user) {
+    if (user.status !== 1) {
+      localStorage.removeItem('bitflow_user')
+      sessionStorage.removeItem('bitflow_user')
+      return
     }
-  }, [navigate])
+
+    if (user.mustChangePass === 1) {
+      navigate('/first-login/change-password')
+    } else {
+      navigate('/dashboard')
+    }
+  }
+}, [navigate])
 
   const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+  e.preventDefault()
+  setError(null)
+  setLoading(true)
 
+  try {
     const res = await loginRequest(email, password, remember)
     console.log('RESPUESTA LOGIN:', res)
-
-    setLoading(false)
 
     if (!res.ok || !res.user) {
       if (res.code === 'TRIAL_ENDED') {
@@ -61,7 +66,20 @@ export default function Login() {
         return
       }
 
+      if (res.code === 'USER_INACTIVE') {
+        setError(
+          res.msg ||
+            'Tu usuario ha sido dado de baja. Contacta al administrador.'
+        )
+        return
+      }
+
       setError(res.msg || 'Error al iniciar sesión')
+      return
+    }
+
+    if (res.user.status !== 1) {
+      setError('Tu usuario ha sido dado de baja. Contacta al administrador.')
       return
     }
 
@@ -70,7 +88,12 @@ export default function Login() {
     } else {
       navigate('/dashboard')
     }
+  } catch (error) {
+    setError('Error al iniciar sesión')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <>
