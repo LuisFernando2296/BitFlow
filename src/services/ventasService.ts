@@ -309,3 +309,17 @@ export async function tomarProspecto(payload: { idProspecto: number; idUser: num
 
   return data as { ok: boolean; msg?: string; data?: any }
 }
+
+export async function asignarProspectosMultiples(payload: {
+  prospectos: number[]
+  idUser: number
+  idEmpresa: number
+}) {
+  const { data } = await axios.post(
+    `${API_URL}/prospectos/asignar-multiples`,
+    payload,
+    { headers: getAuthHeaders() }
+  )
+
+  return data
+}

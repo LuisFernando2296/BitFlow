@@ -29,6 +29,7 @@ import {
   Snackbar,
   Alert,
   Autocomplete,
+  Checkbox,
 } from '@mui/material'
 
 import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined'
@@ -177,6 +178,10 @@ export default function ProspectosPage() {
   const [usuariosVentas, setUsuariosVentas] = useState<UsuarioCatalogo[]>([])
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [loadingUsuarios, setLoadingUsuarios] = useState(false)
+
+  const [selectedProspectos, setSelectedProspectos] = useState<number[]>([])
+  const [openBulkAssign, setOpenBulkAssign] = useState(false)
+  const [bulkUserId, setBulkUserId] = useState<number | null>(null)
 
   const [openNotas, setOpenNotas] = useState(false)
   const [notas, setNotas] = useState<NotaProspecto[]>([])
@@ -433,6 +438,119 @@ export default function ProspectosPage() {
     return filtrados.slice(start, start + ROWS_PER_PAGE)
   }, [filtrados, page])
 
+  const visibleIds = useMemo(() => paginados.map((p) => p.id), [paginados])
+
+  const allVisibleSelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedProspectos.includes(id))
+
+  const someVisibleSelected =
+    visibleIds.some((id) => selectedProspectos.includes(id)) &&
+    !allVisibleSelected
+
+  const toggleSelectAllVisible = (checked: boolean) => {
+    if (checked) {
+      setSelectedProspectos((prev) =>
+        Array.from(new Set([...prev, ...visibleIds]))
+      )
+      return
+    }
+
+    setSelectedProspectos((prev) =>
+      prev.filter((id) => !visibleIds.includes(id))
+    )
+  }
+
+  const toggleSelectProspecto = (id: number, checked: boolean) => {
+    if (checked) {
+      setSelectedProspectos((prev) => Array.from(new Set([...prev, id])))
+      return
+    }
+
+    setSelectedProspectos((prev) => prev.filter((item) => item !== id))
+  }
+
+  const abrirAsignacionMultiple = async () => {
+    if (!esMaster && !esAdmin) return
+
+    if (selectedProspectos.length === 0) {
+      showSnackbar('Selecciona al menos un prospecto.', 'warning')
+      return
+    }
+
+    if (!user?.idEmpresa) {
+      showSnackbar('No se encontró la empresa del usuario logueado', 'error')
+      return
+    }
+
+    try {
+      setLoadingUsuarios(true)
+      setBulkUserId(null)
+
+      const data = await getUsuariosVentas(user.idEmpresa)
+      setUsuariosVentas(data)
+      setOpenBulkAssign(true)
+    } catch (e: any) {
+      console.error(e)
+      const msg =
+        e?.response?.data?.msg ||
+        e.message ||
+        'Error al cargar usuarios de ventas'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoadingUsuarios(false)
+    }
+  }
+
+  const cerrarAsignacionMultiple = () => {
+    setOpenBulkAssign(false)
+    setBulkUserId(null)
+  }
+
+  const guardarAsignacionMultiple = async () => {
+    if (!bulkUserId) {
+      showSnackbar('Selecciona un usuario de ventas.', 'warning')
+      return
+    }
+
+    if (selectedProspectos.length === 0) {
+      showSnackbar('Selecciona al menos un prospecto.', 'warning')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      const results = await Promise.all(
+        selectedProspectos.map((idProspecto) =>
+          asignarProspectoManual(idProspecto, Number(bulkUserId))
+        )
+      )
+
+      const failed = results.find((resp) => !resp.ok)
+
+      if (failed) {
+        showSnackbar(
+          failed.msg || 'Uno o más prospectos no se pudieron asignar',
+          'error'
+        )
+        return
+      }
+
+      showSnackbar('Prospectos asignados correctamente.', 'success')
+      setSelectedProspectos([])
+      cerrarAsignacionMultiple()
+      await loadProspectos()
+    } catch (e: any) {
+      console.error(e)
+      const msg =
+        e?.response?.data?.msg || e.message || 'Error al asignar prospectos'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleStatusChange = async (id: number, nuevoStatus: number) => {
     try {
       setLoading(true)
@@ -624,6 +742,46 @@ export default function ProspectosPage() {
         </Button>
       </Paper>
 
+      {(esMaster || esAdmin) && (
+        <Paper
+          elevation={0}
+          sx={{
+            mb: 2,
+            p: 1.5,
+            borderRadius: 2,
+            border: (theme) => `1px solid ${theme.palette.divider}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Prospectos seleccionados:{' '}
+            <strong>{selectedProspectos.length}</strong>
+          </Typography>
+
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              disabled={selectedProspectos.length === 0 || loading}
+              onClick={() => setSelectedProspectos([])}
+            >
+              Limpiar selección
+            </Button>
+
+            <Button
+              variant="contained"
+              disabled={selectedProspectos.length === 0 || loading}
+              onClick={abrirAsignacionMultiple}
+            >
+              Asignar seleccionados
+            </Button>
+          </Stack>
+        </Paper>
+      )}
+
       {error && (
         <Typography color="error" variant="body2" mb={1}>
           {error}
@@ -648,6 +806,15 @@ export default function ProspectosPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
+                {(esMaster || esAdmin) && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={allVisibleSelected}
+                      indeterminate={someVisibleSelected}
+                      onChange={(e) => toggleSelectAllVisible(e.target.checked)}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>Nombre</TableCell>
                 <TableCell>Usuario</TableCell>
                 <TableCell>Último usuario</TableCell>
@@ -669,6 +836,16 @@ export default function ProspectosPage() {
 
                 return (
                   <TableRow key={p.id} hover>
+                    {(esMaster || esAdmin) && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedProspectos.includes(p.id)}
+                          onChange={(e) =>
+                            toggleSelectProspecto(p.id, e.target.checked)
+                          }
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>{p.nombre}</TableCell>
                     <TableCell>{p.usuario || '-'}</TableCell>
                     <TableCell>{p.ultimoUsuario?.trim() ? p.ultimoUsuario : '-'}</TableCell>
@@ -762,7 +939,7 @@ export default function ProspectosPage() {
 
               {!loading && paginados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={13} align="center">
+                  <TableCell colSpan={(esMaster || esAdmin) ? 14 : 13} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No hay prospectos para mostrar.
                     </Typography>
@@ -867,6 +1044,53 @@ export default function ProspectosPage() {
             disabled={loading || loadingUsuarios}
           >
             Asignar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openBulkAssign}
+        onClose={cerrarAsignacionMultiple}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Asignar prospectos seleccionados</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Se asignarán <strong>{selectedProspectos.length}</strong>{' '}
+              prospectos al usuario seleccionado.
+            </Typography>
+
+            <Autocomplete<UsuarioCatalogo>
+              options={usuariosVentas}
+              loading={loadingUsuarios}
+              getOptionLabel={(option) =>
+                `${option.nombre} ${option.apellido} — ${option.correo}`
+              }
+              value={usuariosVentas.find((u) => u.id === bulkUserId) || null}
+              onChange={(_event, newValue) => {
+                setBulkUserId(newValue ? newValue.id : null)
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Usuario de ventas"
+                  size="small"
+                  placeholder="Buscar por nombre o correo..."
+                />
+              )}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cerrarAsignacionMultiple}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={guardarAsignacionMultiple}
+            disabled={loading || loadingUsuarios}
+          >
+            Asignar prospectos
           </Button>
         </DialogActions>
       </Dialog>
