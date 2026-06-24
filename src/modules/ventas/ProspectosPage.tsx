@@ -222,6 +222,7 @@ export default function ProspectosPage() {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(0)
+  const [origenFilter, setOrigenFilter] = useState('Todos')
   const [page, setPage] = useState(0)
 
   const [openEdit, setOpenEdit] = useState(false)
@@ -239,6 +240,17 @@ export default function ProspectosPage() {
       })),
     ]
   }, [statusCatalogo])
+ const origenOptions = useMemo<string[]>(() => {
+  const origenes = Array.from(
+    new Set(
+      prospectos
+        .map((p) => p.origen)
+        .filter((origen): origen is string => Boolean(origen))
+    )
+  )
+
+  return ['Todos', ...origenes]
+}, [prospectos])
 
   const cargarNotas = async (idProspecto: number) => {
     try {
@@ -411,6 +423,10 @@ export default function ProspectosPage() {
 
     if (statusFilter !== 0) {
       lista = lista.filter((p) => p.status === statusFilter)
+    }
+
+    if (origenFilter !== 'Todos') {
+      lista = lista.filter((p) => p.origen === origenFilter)
     }
 
     const term = search.toLowerCase().trim()
@@ -719,6 +735,25 @@ export default function ProspectosPage() {
             ))}
           </Select>
         </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Origen</InputLabel>
+
+              <Select
+                value={origenFilter}
+                label="Origen"
+                onChange={(e) => {
+                  setOrigenFilter(e.target.value)
+                  setPage(0)
+                }}
+              >
+                {origenOptions.map((o) => (
+                  <MenuItem key={o} value={o}>
+                    {o}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
         <Button
           variant="contained"
